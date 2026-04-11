@@ -4,7 +4,7 @@ emoji: 🧠
 colorFrom: blue
 colorTo: purple
 sdk: gradio
-sdk_version: "5.12.0"
+sdk_version: "6.11.0"
 app_file: app.py
 pinned: true
 license: mit
@@ -34,9 +34,10 @@ Open http://localhost:7860
 ## Environment variables
 
 ```
-ANTHROPIC_API_KEY=    # required for audience mode (falls back to placeholder data otherwise)
-SUPABASE_URL=         # Supabase project URL
-SUPABASE_ANON_KEY=    # Supabase anon / public key (insert-only via RLS)
+ANTHROPIC_API_KEY=     # required for audience mode (falls back to placeholder data otherwise)
+SUPABASE_URL=          # Supabase project URL
+SUPABASE_SERVICE_KEY=  # Supabase service_role key — server-side only, bypasses RLS
+SUPABASE_ANON_KEY=     # (optional) anon key fallback
 ```
 
 Without Supabase keys, study submissions log to stdout (`[STUDY] {...}`).

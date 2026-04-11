@@ -14,14 +14,17 @@ def _get_client():
         return _client
     _tried = True
     url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_ANON_KEY")
+    # Prefer the service_role key server-side so RLS doesn't block anonymous study inserts.
+    # Falls back to anon key if service key is unavailable.
+    key = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_ANON_KEY")
+    key_kind = "service_role" if os.environ.get("SUPABASE_SERVICE_KEY") else "anon"
     if not url or not key:
         print("[supabase] No credentials set \u2014 study data will log to stdout only.")
         return None
     try:
         from supabase import create_client
         _client = create_client(url, key)
-        print("[supabase] Client initialized.")
+        print(f"[supabase] Client initialized ({key_kind}).")
         return _client
     except Exception as e:
         print(f"[supabase] Failed to initialize client: {e}")

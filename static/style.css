@@ -13,14 +13,23 @@ body, .gradio-container {
 
 footer { display: none !important; }
 
-/* Hide the two keyboard-proxy buttons completely */
-#forward_btn, #back_btn {
+/* Hide the two keyboard-proxy buttons completely (elem_id wrapper + inner button) */
+#forward_btn, #back_btn,
+#forward_btn *, #back_btn * {
     position: absolute !important;
     left: -9999px !important;
+    top: -9999px !important;
     width: 1px !important;
     height: 1px !important;
+    max-width: 1px !important;
+    max-height: 1px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
     overflow: hidden !important;
     opacity: 0 !important;
+    visibility: hidden !important;
     pointer-events: auto !important;
 }
 
@@ -33,4 +42,18 @@ footer { display: none !important; }
     font-size: 1.2em !important;
     padding: 0.9em 2em !important;
     min-height: 3.5em !important;
+}
+
+/* Workaround for Gradio 6 quirk: components first mounted with visible=False
+   retain the `hide` class even when later updated to visible=True. Any element
+   marked with .aal-force-show will override and display. */
+.aal-force-show,
+.aal-force-show.hide {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+.aal-force-hide,
+.aal-force-hide.column {
+    display: none !important;
 }

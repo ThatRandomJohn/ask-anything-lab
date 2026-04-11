@@ -132,7 +132,10 @@ def enter_presenter():
     return (
         gr.update(visible=False),   # landing_view
         gr.update(visible=True),    # presenter_view
-        gr.update(visible=False),   # audience_view
+        gr.update(visible=False),   # audience_input_group
+        gr.update(visible=False),   # audience_viz_group
+        gr.update(visible=False),   # study_group
+        gr.update(visible=False),   # thanks_group
         0, 0,                       # stage, embed_step
         render_presenter_stage(0, 0),
     )
@@ -142,7 +145,6 @@ def enter_audience():
     return (
         gr.update(visible=False),   # landing_view
         gr.update(visible=False),   # presenter_view
-        gr.update(visible=True),    # audience_view
         gr.update(visible=True),    # audience_input_group
         gr.update(visible=False),   # audience_viz_group
         gr.update(visible=False),   # study_group
@@ -156,7 +158,10 @@ def go_home():
     return (
         gr.update(visible=True),    # landing_view
         gr.update(visible=False),   # presenter_view
-        gr.update(visible=False),   # audience_view
+        gr.update(visible=False),   # audience_input_group
+        gr.update(visible=False),   # audience_viz_group
+        gr.update(visible=False),   # study_group
+        gr.update(visible=False),   # thanks_group
         0, 0,                       # stage, embed_step
     )
 
@@ -226,6 +231,7 @@ def handle_audience_submit(prompt):
 
 def handle_audience_continue(audience_stage, prompt, embeddings, sources, response):
     """Advance through audience stages: 1=embed showing -> 2=retrieve, 2=retrieve -> 3=synthesize, 3=synthesize -> 4=study."""
+    print(f"[audience] handle_audience_continue called with audience_stage={audience_stage!r}", flush=True)
     if audience_stage == 1:
         srcs = (sources or {}).get("sources") if isinstance(sources, dict) else None
         return (
@@ -243,12 +249,12 @@ def handle_audience_continue(audience_stage, prompt, embeddings, sources, respon
         )
     if audience_stage == 3:
         return (
-            gr.update(visible=False),   # hide viz
-            gr.update(visible=True),    # show study
-            "",
+            gr.update(visible=False, elem_classes=["aal-force-hide"]),
+            gr.update(visible=True, elem_classes=["aal-force-show"]),
+            gr.update(),                # leave audience_display as-is
             4,
         )
-    return gr.update(), gr.update(), "", audience_stage
+    return gr.update(), gr.update(), gr.update(), audience_stage
 
 
 def handle_study_submit(session_id, prompt, q1, q2, q3):
@@ -260,8 +266,8 @@ def handle_study_submit(session_id, prompt, q1, q2, q3):
         )
     save_study(session_id, prompt, q1, q2, q3)
     return (
-        gr.update(visible=False),   # hide study
-        gr.update(visible=True),    # show thanks
+        gr.update(visible=False, elem_classes=["aal-force-hide"]),   # hide study
+        gr.update(visible=True, elem_classes=["aal-force-show"]),    # show thanks
         gr.update(value="", visible=False),
     )
 
@@ -349,76 +355,77 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         back_btn = gr.Button("back", elem_id="back_btn")
 
     # ============================================================
-    # Audience view
+    # Audience view — top-level sibling groups to avoid Gradio 6 nested
+    # visibility cascading issues. Each view is an independent top-level
+    # Column that can be toggled cleanly.
     # ============================================================
-    with gr.Column(visible=False, elem_id="audience_view") as audience_view:
 
-        # -- input group --
-        with gr.Column(visible=True) as audience_input_group:
-            gr.HTML("""
-            <div style="max-width: 860px; margin: 3em auto 1em; padding: 0 2em;">
-              <div style="color:#64748B; font-size:0.95em; letter-spacing:0.2em; text-transform:uppercase;">Ask anything</div>
-              <h2 style="color:#F1F5F9; font-size:2.2em; margin-top:0.35em; font-weight:700;">
-                Type a prompt. We&rsquo;ll show you what the AI does next.
-              </h2>
-              <p style="color:#64748B; font-size:1.1em; line-height:1.55;">
-                Your words will travel through embedding &rarr; retrieval &rarr; synthesis &mdash;
-                the same pipeline ChatGPT runs on every request.
-              </p>
-            </div>
-            """)
-            with gr.Row():
-                with gr.Column(scale=1): pass
-                with gr.Column(scale=3):
-                    prompt_box = gr.Textbox(
-                        label="Your prompt",
-                        placeholder="Ask me anything\u2026",
-                        lines=3,
-                        autofocus=True,
-                    )
-                    prompt_err = gr.Markdown(value="", visible=False)
-                    submit_btn = gr.Button("Process my prompt \u2192", variant="primary")
-                with gr.Column(scale=1): pass
+    # -- audience input group (first screen of audience mode) --
+    with gr.Column(visible=False, elem_id="audience_input_view") as audience_input_group:
+        gr.HTML("""
+        <div style="max-width: 860px; margin: 3em auto 1em; padding: 0 2em;">
+          <div style="color:#64748B; font-size:0.95em; letter-spacing:0.2em; text-transform:uppercase;">Ask anything</div>
+          <h2 style="color:#F1F5F9; font-size:2.2em; margin-top:0.35em; font-weight:700;">
+            Type a prompt. We&rsquo;ll show you what the AI does next.
+          </h2>
+          <p style="color:#64748B; font-size:1.1em; line-height:1.55;">
+            Your words will travel through embedding &rarr; retrieval &rarr; synthesis &mdash;
+            the same pipeline ChatGPT runs on every request.
+          </p>
+        </div>
+        """)
+        with gr.Row():
+            with gr.Column(scale=1): pass
+            with gr.Column(scale=3):
+                prompt_box = gr.Textbox(
+                    label="Your prompt",
+                    placeholder="Ask me anything\u2026",
+                    lines=3,
+                    autofocus=True,
+                )
+                prompt_err = gr.Markdown(value="", visible=False)
+                submit_btn = gr.Button("Process my prompt \u2192", variant="primary")
+            with gr.Column(scale=1): pass
 
-        # -- viz group (shared HTML slot for embed/retrieve/synthesize) --
-        with gr.Column(visible=False) as audience_viz_group:
-            audience_display = gr.HTML(value="")
-            with gr.Row():
-                with gr.Column(scale=1): pass
-                with gr.Column(scale=2):
-                    continue_btn = gr.Button("Continue \u2192", variant="primary")
-                with gr.Column(scale=1): pass
+    # -- audience viz group (embed/retrieve/synthesize display) --
+    with gr.Column(visible=False, elem_id="audience_viz_view") as audience_viz_group:
+        audience_display = gr.HTML(value="")
+        with gr.Row():
+            with gr.Column(scale=1): pass
+            with gr.Column(scale=2):
+                continue_btn = gr.Button("Continue \u2192", variant="primary")
+            with gr.Column(scale=1): pass
 
-        # -- study questions group --
-        with gr.Column(visible=False) as study_group:
-            gr.HTML(study_intro_html())
-            with gr.Row():
-                with gr.Column(scale=1): pass
-                with gr.Column(scale=3):
-                    q1 = gr.Radio(
-                        choices=[(label, value) for value, label in SURPRISING_OPTIONS],
-                        label="1. Which stage surprised you most?",
-                    )
-                    q2 = gr.Slider(
-                        minimum=1, maximum=5, step=1, value=3,
-                        label="2. Before seeing this, how much did you trust AI answers? (1 = not at all, 5 = completely)",
-                    )
-                    q3 = gr.Slider(
-                        minimum=1, maximum=5, step=1, value=3,
-                        label="3. After seeing how it works, how much do you trust AI answers? (1 = not at all, 5 = completely)",
-                    )
-                    study_err = gr.Markdown(value="", visible=False)
-                    study_submit_btn = gr.Button("Submit", variant="primary")
-                with gr.Column(scale=1): pass
+    # -- study questions group --
+    with gr.Column(visible=False, elem_id="study_view") as study_group:
+        gr.HTML(study_intro_html())
+        with gr.Row():
+            with gr.Column(scale=1): pass
+            with gr.Column(scale=3):
+                q1 = gr.Radio(
+                    choices=[(label, value) for value, label in SURPRISING_OPTIONS],
+                    label="1. Which stage surprised you most?",
+                )
+                q2 = gr.Slider(
+                    minimum=1, maximum=5, step=1, value=3,
+                    label="2. Before seeing this, how much did you trust AI answers? (1 = not at all, 5 = completely)",
+                )
+                q3 = gr.Slider(
+                    minimum=1, maximum=5, step=1, value=3,
+                    label="3. After seeing how it works, how much do you trust AI answers? (1 = not at all, 5 = completely)",
+                )
+                study_err = gr.Markdown(value="", visible=False)
+                study_submit_btn = gr.Button("Submit", variant="primary")
+            with gr.Column(scale=1): pass
 
-        # -- thanks group --
-        with gr.Column(visible=False) as thanks_group:
-            gr.HTML(thanks_html())
-            with gr.Row():
-                with gr.Column(scale=2): pass
-                with gr.Column(scale=1):
-                    home_btn_a = gr.Button("\u2190 Back to start", size="sm")
-                with gr.Column(scale=2): pass
+    # -- thanks group --
+    with gr.Column(visible=False, elem_id="thanks_view") as thanks_group:
+        gr.HTML(thanks_html())
+        with gr.Row():
+            with gr.Column(scale=2): pass
+            with gr.Column(scale=1):
+                home_btn_a = gr.Button("\u2190 Back to start", size="sm")
+            with gr.Column(scale=2): pass
 
     # ============================================================
     # Event wiring
@@ -426,13 +433,17 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
 
     go_presenter_btn.click(
         enter_presenter,
-        outputs=[landing_view, presenter_view, audience_view, stage, embed_step, presenter_display],
+        outputs=[
+            landing_view, presenter_view,
+            audience_input_group, audience_viz_group, study_group, thanks_group,
+            stage, embed_step, presenter_display,
+        ],
     )
 
     go_audience_btn.click(
         enter_audience,
         outputs=[
-            landing_view, presenter_view, audience_view,
+            landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
             prompt_box, audience_stage,
         ],
@@ -440,11 +451,19 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
 
     home_btn_p.click(
         go_home,
-        outputs=[landing_view, presenter_view, audience_view, stage, embed_step],
+        outputs=[
+            landing_view, presenter_view,
+            audience_input_group, audience_viz_group, study_group, thanks_group,
+            stage, embed_step,
+        ],
     )
     home_btn_a.click(
         go_home,
-        outputs=[landing_view, presenter_view, audience_view, stage, embed_step],
+        outputs=[
+            landing_view, presenter_view,
+            audience_input_group, audience_viz_group, study_group, thanks_group,
+            stage, embed_step,
+        ],
     )
 
     forward_btn.click(
@@ -481,6 +500,9 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[study_group, thanks_group, study_err],
     )
 
+    # Install keyboard listener on page load (Gradio 6: js= must go on .load())
+    demo.load(fn=None, inputs=None, outputs=None, js=KEYBOARD_JS)
+
 
 if __name__ == "__main__":
     demo.launch(
@@ -489,5 +511,4 @@ if __name__ == "__main__":
         show_error=True,
         theme=gr.themes.Base(primary_hue="blue", neutral_hue="slate"),
         css=_load_css(),
-        js=KEYBOARD_JS,
     )
