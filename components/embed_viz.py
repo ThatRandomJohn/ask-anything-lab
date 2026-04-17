@@ -166,16 +166,16 @@ EMBED_STEP_LABELS = [
     "bridge",
 ]
 
-# Stage-level progress (top-level deck, 5 stages).
+# Stage-level progress (top-level deck, 7 stages).
 # Colors double as a mini legend tying each stage to its cluster hue.
-_STAGE_COLORS = ["#94A3B8", "#06B6D4", "#F59E0B", "#A78BFA", "#F59E0B"]
-_STAGE_LABELS = ["Input", "Embed", "Bridge", "Compare", "Reflect"]
+_STAGE_COLORS = ["#94A3B8", "#06B6D4", "#06B6D4", "#06B6D4", "#F59E0B", "#A78BFA", "#F59E0B"]
+_STAGE_LABELS = ["Input", "Sentence", "Matrix", "Vectors", "Bridge", "Compare", "Reflect"]
 
 
 def stage_progress(current: int) -> str:
-    """Segmented 5-stage progress bar shown in every presenter header."""
+    """Segmented 7-stage progress bar shown in every presenter header."""
     out = ['<span class="aal-progress">']
-    for i in range(5):
+    for i in range(7):
         if i < current:
             out.append(
                 f'<span class="aal-progress-seg aal-seg-done" '
@@ -236,21 +236,39 @@ def render_embed_step(step: int) -> str:
     )
 
 
-def render_embed_vector_stage() -> str:
-    """Presenter stage 1 — the vector space with clusters forming."""
+def render_embed_sentence_stage() -> str:
+    """Presenter stage 1 — the prompt broken into pieces."""
     return _wrap_svg_stage(
-        eyebrow="Step 2 &middot; Embed &middot; vector space",
-        svg_inner=_step_2_grid(),
+        eyebrow="Step 2 &middot; Embed &middot; sentence",
+        svg_inner=_step_0_sentence(),
         current_stage=1,
     )
 
 
-def render_bridge_stage() -> str:
-    """Presenter stage 2 — AI patterns + bridge lines drawing."""
+def render_embed_matrix_stage() -> str:
+    """Presenter stage 2 — every word becomes numbers."""
     return _wrap_svg_stage(
-        eyebrow="Step 3 &middot; Bridge &middot; proximity becomes empathy",
-        svg_inner=_step_4_bridge(),
+        eyebrow="Step 3 &middot; Embed &middot; matrix",
+        svg_inner=_step_1_matrix(),
         current_stage=2,
+    )
+
+
+def render_embed_vector_stage() -> str:
+    """Presenter stage 3 — the vector space with clusters forming."""
+    return _wrap_svg_stage(
+        eyebrow="Step 4 &middot; Embed &middot; vector space",
+        svg_inner=_step_2_grid(),
+        current_stage=3,
+    )
+
+
+def render_bridge_stage() -> str:
+    """Presenter stage 4 — AI patterns + bridge lines drawing."""
+    return _wrap_svg_stage(
+        eyebrow="Step 5 &middot; Bridge &middot; proximity becomes empathy",
+        svg_inner=_step_4_bridge(),
+        current_stage=4,
     )
 
 

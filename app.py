@@ -24,6 +24,8 @@ from components.landing import LANDING_HTML
 from components.embed_viz import (
     render_audience_embed,
     render_bridge_stage,
+    render_embed_matrix_stage,
+    render_embed_sentence_stage,
     render_embed_step,
     render_embed_vector_stage,
     stage_progress,
@@ -31,6 +33,7 @@ from components.embed_viz import (
 from components.source_list import render_sources
 from components.typewriter import typewriter_html
 from components.compare import render_compare_stage
+from components.speaker import SPEAKER_HTML
 from components.study import SURPRISING_OPTIONS, study_intro_html, thanks_html
 from components import corpus_slideshow
 from services.claude_api import process_prompt_parallel
@@ -51,7 +54,7 @@ from services.supabase_client import save_study
 # Audience mode still uses the original 5-sub-step embed + retrieve +
 # synthesize flow (self-paced, full experience). embed_step remains in
 # state for audience-mode compatibility but presenter mode ignores it.
-LAST_STAGE = 4
+LAST_STAGE = 6
 EMBED_SUBSTEPS = 5
 
 
@@ -59,12 +62,16 @@ def render_presenter_stage(stage: int, embed_step: int) -> str:
     if stage == 0:
         return _render_input_stage()
     if stage == 1:
-        return render_embed_vector_stage()
+        return render_embed_sentence_stage()
     if stage == 2:
-        return render_bridge_stage()
+        return render_embed_matrix_stage()
     if stage == 3:
-        return render_compare_stage()
+        return render_embed_vector_stage()
     if stage == 4:
+        return render_bridge_stage()
+    if stage == 5:
+        return render_compare_stage()
+    if stage == 6:
         return _render_reflect_stage()
     return _render_input_stage()
 
@@ -110,8 +117,8 @@ def _render_reflect_stage() -> str:
     return f"""
 <div class="aal-reflect-wrap">
   <div class="aal-reflect-topbar">
-    <div class="aal-reflect-eyebrow">Step 5 &middot; Reflect</div>
-    <div>{stage_progress(4)}</div>
+    <div class="aal-reflect-eyebrow">Step 7 &middot; Reflect</div>
+    <div>{stage_progress(6)}</div>
   </div>
   <div class="aal-reflect-body">
     <div class="aal-reflect-quote">
@@ -170,6 +177,7 @@ def enter_presenter():
         gr.update(visible=False, elem_classes=_HIDE),   # study_group
         gr.update(visible=False, elem_classes=_HIDE),   # thanks_group
         gr.update(visible=False, elem_classes=_HIDE),   # corpus_view
+        gr.update(visible=False, elem_classes=_HIDE),   # speaker_view
         0, 0,                                            # stage, embed_step
         render_presenter_stage(0, 0),
     )
@@ -184,6 +192,7 @@ def enter_audience():
         gr.update(visible=False, elem_classes=_HIDE),   # study_group
         gr.update(visible=False, elem_classes=_HIDE),   # thanks_group
         gr.update(visible=False, elem_classes=_HIDE),   # corpus_view
+        gr.update(visible=False, elem_classes=_HIDE),   # speaker_view
         "",                                              # prompt_box reset
         0,                                               # audience_stage reset
     )
@@ -198,8 +207,22 @@ def enter_corpus():
         gr.update(visible=False, elem_classes=_HIDE),   # study_group
         gr.update(visible=False, elem_classes=_HIDE),   # thanks_group
         gr.update(visible=True,  elem_classes=_SHOW),   # corpus_view
+        gr.update(visible=False, elem_classes=_HIDE),   # speaker_view
         0,                                               # corpus_idx reset
         corpus_slideshow.slide_html(0),                  # corpus_slide
+    )
+
+
+def enter_speaker():
+    return (
+        gr.update(visible=False, elem_classes=_HIDE),   # landing_view
+        gr.update(visible=False, elem_classes=_HIDE),   # presenter_view
+        gr.update(visible=False, elem_classes=_HIDE),   # audience_input_group
+        gr.update(visible=False, elem_classes=_HIDE),   # audience_viz_group
+        gr.update(visible=False, elem_classes=_HIDE),   # study_group
+        gr.update(visible=False, elem_classes=_HIDE),   # thanks_group
+        gr.update(visible=False, elem_classes=_HIDE),   # corpus_view
+        gr.update(visible=True,  elem_classes=_SHOW),   # speaker_view
     )
 
 
@@ -212,6 +235,7 @@ def go_home():
         gr.update(visible=False, elem_classes=_HIDE),   # study_group
         gr.update(visible=False, elem_classes=_HIDE),   # thanks_group
         gr.update(visible=False, elem_classes=_HIDE),   # corpus_view
+        gr.update(visible=False, elem_classes=_HIDE),   # speaker_view
         0, 0,                                            # stage, embed_step
     )
 
@@ -456,14 +480,16 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
     with gr.Column(visible=True, elem_id="landing_view") as landing_view:
         gr.HTML(LANDING_HTML)
         with gr.Row(elem_classes=["tedx-cta"]):
-            with gr.Column(scale=2): pass
-            with gr.Column(scale=2, elem_classes=["aal-cta-ghost"]):
+            with gr.Column(scale=2, min_width=0): pass
+            with gr.Column(scale=2, elem_classes=["aal-cta-ghost"], min_width=160):
                 go_presenter_btn = gr.Button("Presenter Demo", variant="secondary")
-            with gr.Column(scale=3, elem_classes=["aal-cta-primary"]):
+            with gr.Column(scale=3, elem_classes=["aal-cta-primary"], min_width=200):
                 go_audience_btn = gr.Button("Try It Yourself  \u2192", variant="primary")
-            with gr.Column(scale=2, elem_classes=["aal-cta-ghost"]):
+            with gr.Column(scale=2, elem_classes=["aal-cta-ghost"], min_width=160):
                 go_corpus_btn = gr.Button("The Corpus Deck", variant="secondary")
-            with gr.Column(scale=2): pass
+            with gr.Column(scale=2, elem_classes=["aal-cta-ghost"], min_width=140):
+                go_speaker_btn = gr.Button("Book John", variant="secondary")
+            with gr.Column(scale=2, min_width=0): pass
         gr.HTML("""
         <div style="text-align:center; color:#475569; margin: 2em 0 3em; font-size:0.95em;">
           TEDx &middot; May 1, 2026 &middot;
@@ -571,6 +597,16 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         corpus_back_btn = gr.Button("corpus back", elem_id="corpus_back_btn")
 
     # ============================================================
+    # Speaker / Book John view
+    # ============================================================
+    with gr.Column(visible=False, elem_id="speaker_view") as speaker_view:
+        gr.HTML(SPEAKER_HTML)
+        with gr.Row():
+            with gr.Column(scale=1):
+                home_btn_s = gr.Button("\u2190 Home", size="sm")
+            with gr.Column(scale=4): pass
+
+    # ============================================================
     # Event wiring
     # ============================================================
 
@@ -579,7 +615,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[
             landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
-            corpus_view,
+            corpus_view, speaker_view,
             stage, embed_step, presenter_display,
         ],
     )
@@ -589,7 +625,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[
             landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
-            corpus_view,
+            corpus_view, speaker_view,
             prompt_box, audience_stage,
         ],
     )
@@ -599,8 +635,17 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[
             landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
-            corpus_view,
+            corpus_view, speaker_view,
             corpus_idx, corpus_slide,
+        ],
+    )
+
+    go_speaker_btn.click(
+        enter_speaker,
+        outputs=[
+            landing_view, presenter_view,
+            audience_input_group, audience_viz_group, study_group, thanks_group,
+            corpus_view, speaker_view,
         ],
     )
 
@@ -609,7 +654,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[
             landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
-            corpus_view,
+            corpus_view, speaker_view,
             stage, embed_step,
         ],
     )
@@ -618,7 +663,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[
             landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
-            corpus_view,
+            corpus_view, speaker_view,
             stage, embed_step,
         ],
     )
@@ -627,7 +672,16 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[
             landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
-            corpus_view,
+            corpus_view, speaker_view,
+            stage, embed_step,
+        ],
+    )
+    home_btn_s.click(
+        go_home,
+        outputs=[
+            landing_view, presenter_view,
+            audience_input_group, audience_viz_group, study_group, thanks_group,
+            corpus_view, speaker_view,
             stage, embed_step,
         ],
     )

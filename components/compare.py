@@ -47,8 +47,8 @@ def render_compare_stage() -> str:
   </div>
 
   <div class="aal-compare-topbar">
-    <div class="aal-compare-eyebrow">Step 4 &middot; Compare</div>
-    <div>{stage_progress(3)}</div>
+    <div class="aal-compare-eyebrow">Step 6 &middot; Compare</div>
+    <div>{stage_progress(5)}</div>
   </div>
 
   <div class="aal-compare-header">

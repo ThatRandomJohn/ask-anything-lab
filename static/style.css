@@ -225,7 +225,17 @@ footer { display: none !important; }
    CTA hierarchy — primary glows, secondary is a ghost
    ============================================================ */
 
-.tedx-cta { position: relative; z-index: 3; }
+.tedx-cta {
+    position: relative;
+    z-index: 3;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    flex-wrap: wrap;
+    gap: 1em;
+    max-width: 900px;
+    margin: 0 auto !important;
+}
 
 .tedx-cta button {
     font-size: 1.1em !important;
@@ -234,6 +244,7 @@ footer { display: none !important; }
     border-radius: 14px !important;
     transition: transform 160ms ease, box-shadow 200ms ease, background 200ms ease !important;
     font-weight: 600 !important;
+    white-space: nowrap !important;
 }
 
 .aal-cta-primary button {
@@ -1068,5 +1079,237 @@ footer { display: none !important; }
     opacity: 0;
     animation: aalFadeIn 800ms ease-out forwards;
     animation-delay: 400ms;
+}
+
+/* ============================================================
+   SPEAKER / Book John page
+   ============================================================ */
+
+.aal-speaker {
+    position: relative;
+    min-height: 100vh;
+    padding: 4em 2em 5em;
+    overflow: hidden;
+    background: #06080C;
+    isolation: isolate;
+}
+
+.aal-speaker-aurora {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.aal-speaker-content {
+    position: relative;
+    z-index: 2;
+    max-width: 820px;
+    margin: 0 auto;
+}
+
+.aal-speaker-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6em;
+    color: #94A3B8;
+    font-size: 0.85em;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    padding: 0.5em 1.1em;
+    border: 1px solid rgba(148,163,184,0.15);
+    border-radius: 999px;
+    background: rgba(12,16,24,0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    margin-bottom: 2em;
+}
+
+.aal-speaker-hero {
+    margin-bottom: 3.5em;
+}
+
+.aal-speaker-name {
+    font-size: 3.2em;
+    font-weight: 800;
+    color: #F1F5F9;
+    margin: 0 0 0.15em;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+.aal-speaker-role {
+    color: #94A3B8;
+    font-size: 1.15em;
+    margin: 0 0 1.8em;
+}
+
+.aal-speaker-bio {
+    color: #CBD5E1;
+    font-size: 1.1em;
+    line-height: 1.7;
+    margin: 0 0 1em;
+}
+.aal-speaker-bio em {
+    color: #F1F5F9;
+}
+
+.aal-speaker-topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6em;
+    margin-top: 1.8em;
+}
+
+.aal-topic-tag {
+    display: inline-block;
+    padding: 0.4em 1em;
+    border-radius: 999px;
+    font-size: 0.85em;
+    font-weight: 500;
+    color: #C4B5FD;
+    background: rgba(167,139,250,0.12);
+    border: 1px solid rgba(167,139,250,0.25);
+    letter-spacing: 0.02em;
+}
+
+.aal-speaker-form-section {
+    padding: 2.5em 2.5em 2em;
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(15,23,42,0.75) 0%, rgba(12,16,24,0.92) 100%);
+    border: 1px solid rgba(148,163,184,0.14);
+    box-shadow:
+        0 0 0 1px rgba(59,130,246,0.10),
+        0 24px 70px -24px rgba(0,0,0,0.85),
+        0 0 90px -20px rgba(59,130,246,0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.aal-speaker-form-section::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 22px;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(59,130,246,0.4), rgba(167,139,250,0.2), rgba(249,115,22,0.2));
+    -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0.4;
+}
+
+.aal-form-title {
+    color: #F1F5F9;
+    font-size: 1.8em;
+    font-weight: 700;
+    margin: 0 0 0.3em;
+}
+
+.aal-form-subtitle {
+    color: #94A3B8;
+    font-size: 1.05em;
+    margin: 0 0 2em;
+    line-height: 1.5;
+}
+
+.aal-contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2em;
+}
+
+.aal-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2em;
+}
+
+.aal-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+}
+
+.aal-form-field label {
+    color: #94A3B8;
+    font-size: 0.85em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.aal-form-field input,
+.aal-form-field textarea {
+    background: rgba(6,8,12,0.6) !important;
+    border: 1px solid rgba(148,163,184,0.18) !important;
+    border-radius: 12px !important;
+    color: #F1F5F9 !important;
+    font-size: 1em !important;
+    padding: 0.85em 1em !important;
+    font-family: inherit !important;
+    transition: border-color 200ms ease, box-shadow 200ms ease !important;
+    outline: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+.aal-form-field input:focus,
+.aal-form-field textarea:focus {
+    border-color: rgba(59,130,246,0.5) !important;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important;
+}
+.aal-form-field input::placeholder,
+.aal-form-field textarea::placeholder {
+    color: #475569 !important;
+}
+.aal-form-field textarea {
+    resize: vertical !important;
+    min-height: 100px !important;
+}
+
+.aal-form-submit {
+    align-self: flex-start;
+    padding: 0.9em 2em !important;
+    border-radius: 14px !important;
+    font-size: 1.05em !important;
+    font-weight: 600 !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+    background: linear-gradient(135deg, #3B82F6 0%, #A78BFA 100%) !important;
+    color: #F8FAFC !important;
+    cursor: pointer !important;
+    transition: transform 160ms ease, box-shadow 200ms ease !important;
+    box-shadow:
+        0 0 0 1px rgba(59,130,246,0.35),
+        0 12px 36px -8px rgba(59,130,246,0.55),
+        0 0 44px -4px rgba(167,139,250,0.35) !important;
+}
+.aal-form-submit:hover {
+    transform: translateY(-2px) !important;
+    box-shadow:
+        0 0 0 1px rgba(59,130,246,0.5),
+        0 18px 48px -8px rgba(59,130,246,0.7),
+        0 0 64px -4px rgba(167,139,250,0.5) !important;
+}
+.aal-form-submit:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+.aal-form-status {
+    font-size: 0.9em;
+    min-height: 1.5em;
+    margin-top: 0.3em;
+}
+.aal-status-ok { color: #34D399; }
+.aal-status-error { color: #FB7185; }
+
+@media (max-width: 640px) {
+    .aal-form-row { grid-template-columns: 1fr; }
+    .aal-speaker-name { font-size: 2.2em; }
+    .aal-speaker-form-section { padding: 1.5em; }
 }
 
