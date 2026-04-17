@@ -111,29 +111,35 @@ def render_influence_analysis(response: str, influence_data: dict) -> str:
     return f"""
 <div class="aal-influence-wrap">
   <div class="aal-influence-aurora">
-    <div class="aal-think-blob aal-think-blob-a" style="opacity:0.15;"></div>
-    <div class="aal-think-blob aal-think-blob-c" style="opacity:0.15;"></div>
+    <div class="aal-think-blob aal-think-blob-a" style="opacity:0.22;"></div>
+    <div class="aal-think-blob aal-think-blob-c" style="opacity:0.22;"></div>
+    <div class="aal-think-blob aal-think-blob-b" style="opacity:0.12; top:-100px; left:30%;"></div>
   </div>
+  <div class="aal-influence-scan"></div>
 
   <div class="aal-influence-inner">
     <div class="aal-influence-topbar">
-      <div class="aal-influence-eyebrow">Step 5 &middot; Influence Analysis</div>
+      <div class="aal-influence-eyebrow-pill">
+        <span class="aal-eyebrow-dot" style="background:#FB7185; box-shadow: 0 0 12px #FB7185;"></span>
+        Step 5 &middot; Influence Analysis
+      </div>
     </div>
     <h2 class="aal-influence-title">Here&rsquo;s what the AI used to earn your trust.</h2>
     <p class="aal-influence-subtitle">
-      Every highlighted phrase is a technique absorbed from therapy transcripts,
-      self-help books, and persuasive writing in the training data.
+      Every highlighted phrase below is a technique absorbed from therapy transcripts,
+      self-help books, and persuasive writing in the model&rsquo;s training data.
+      <strong style="color:#F1F5F9;">These aren&rsquo;t bugs &mdash; they&rsquo;re features.</strong>
     </p>
 
     <div class="aal-influence-grid">
-      <div class="aal-influence-response">
+      <div class="aal-influence-response aal-influence-card-entrance">
         <div class="aal-influence-response-label">
-          <span class="aal-bubble-header-dot"></span>
+          <span class="aal-bubble-header-dot" style="background:#FB7185; box-shadow: 0 0 12px #FB7185;"></span>
           AI response &middot; annotated
         </div>
         <div class="aal-influence-response-body">{highlighted}</div>
       </div>
-      <div class="aal-influence-breakdown">
+      <div class="aal-influence-breakdown aal-influence-card-entrance" style="animation-delay: 200ms;">
         <div class="aal-influence-breakdown-title">Breakdown</div>
         {breakdown}
       </div>

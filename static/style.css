@@ -1657,3 +1657,115 @@ footer { display: none !important; }
     border-top: 1px solid rgba(148,163,184,0.1);
 }
 
+/* ============================================================
+   SYNTHESIZE — aurora + bubble entrance
+   ============================================================ */
+
+.aal-synth-aurora {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+.aal-synth-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    mix-blend-mode: screen;
+}
+.aal-synth-blob-a {
+    width: 600px; height: 600px;
+    top: -140px; left: 10%;
+    background: radial-gradient(circle, #A78BFA 0%, rgba(167,139,250,0) 65%);
+    opacity: 0.22;
+    animation: aalDrift1 24s ease-in-out infinite alternate;
+}
+.aal-synth-blob-b {
+    width: 550px; height: 550px;
+    bottom: -180px; right: 5%;
+    background: radial-gradient(circle, #06B6D4 0%, rgba(6,182,212,0) 65%);
+    opacity: 0.18;
+    animation: aalDrift2 28s ease-in-out infinite alternate;
+}
+.aal-synth-blob-c {
+    width: 400px; height: 400px;
+    top: 40%; left: 50%;
+    background: radial-gradient(circle, #3B82F6 0%, rgba(59,130,246,0) 65%);
+    opacity: 0.12;
+    animation: aalDrift3 22s ease-in-out infinite alternate;
+}
+
+.aal-synth-eyebrow-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6em;
+    color: #94A3B8;
+    font-size: 0.85em;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    padding: 0.45em 1em;
+    border-radius: 999px;
+    background: rgba(12,16,24,0.55);
+    border: 1px solid rgba(148,163,184,0.15);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    margin-bottom: 1em;
+}
+
+.aal-bubble-entrance {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+    animation: aalBubbleIn 800ms ease-out 300ms forwards;
+}
+@keyframes aalBubbleIn {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ============================================================
+   INFLUENCE — scan line + card entrance + eyebrow pill
+   ============================================================ */
+
+.aal-influence-scan {
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(251,113,133,0.04) 40%,
+        rgba(251,113,133,0.10) 50%, rgba(251,113,133,0.04) 60%, transparent 100%);
+    animation: aalScanSweep 2.5s ease-in-out 0.3s forwards;
+    pointer-events: none; z-index: 1;
+}
+@keyframes aalScanSweep {
+    from { left: -100%; }
+    to   { left: 100%; }
+}
+
+.aal-influence-eyebrow-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6em;
+    color: #94A3B8;
+    font-size: 0.85em;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    padding: 0.45em 1em;
+    border-radius: 999px;
+    background: rgba(12,16,24,0.55);
+    border: 1px solid rgba(251,113,133,0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    margin-bottom: 1em;
+}
+
+.aal-influence-card-entrance {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: aalCardSlideIn 700ms ease-out forwards;
+}
+@keyframes aalCardSlideIn {
+    to { opacity: 1; transform: translateY(0); }
+}
+

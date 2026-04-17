@@ -20,15 +20,24 @@ def typewriter_html(text: str, label: str = "Step 4 \u00b7 Synthesize") -> str:
     body = " ".join(spans).replace(" <br/><br/> ", "<br/><br/>")
     return f"""
 <div class="aal-synth-wrap">
+  <div class="aal-synth-aurora">
+    <div class="aal-synth-blob aal-synth-blob-a"></div>
+    <div class="aal-synth-blob aal-synth-blob-b"></div>
+    <div class="aal-synth-blob aal-synth-blob-c"></div>
+  </div>
+
   <div class="aal-synth-inner">
-    <div class="aal-synth-eyebrow">{_html.escape(label)}</div>
+    <div class="aal-synth-eyebrow-pill">
+      <span class="aal-eyebrow-dot"></span>
+      {_html.escape(label)}
+    </div>
     <h2 class="aal-synth-title">The AI stitches an answer from what it found.</h2>
 
     <div class="aal-synth-explainer">
       <div class="aal-synth-explainer-icon">
         <svg viewBox="0 0 24 24" fill="none" width="20" height="20">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-2zm0-4V7h2v6h-2z"
-                fill="#94A3B8"/>
+                fill="#F59E0B"/>
         </svg>
       </div>
       <div class="aal-synth-explainer-text">
@@ -38,7 +47,7 @@ def typewriter_html(text: str, label: str = "Step 4 \u00b7 Synthesize") -> str:
       </div>
     </div>
 
-    <div class="aal-message-bubble">
+    <div class="aal-message-bubble aal-bubble-entrance">
       <div class="aal-bubble-header">
         <span class="aal-bubble-header-dot"></span>
         AI response &middot; streaming
