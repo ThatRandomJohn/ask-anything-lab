@@ -48,9 +48,44 @@ def _render_source_rows(sources):
     return "".join(rows)
 
 
-def render_sources(sources=None, label="Step 3 \u00b7 Retrieve"):
+def _render_cluster_badges(embeddings):
+    """Render small cluster badges for the connection visualization."""
+    if not embeddings:
+        return ""
+    from collections import defaultdict
+    palette = ["#F97316", "#06B6D4", "#3B82F6", "#A78BFA", "#34D399", "#F59E0B"]
+    words = (embeddings or {}).get("words", []) or []
+    groups = defaultdict(list)
+    for w in words:
+        groups[str(w.get("cluster", "default"))].append(w)
+
+    badges = []
+    for i, (name, ws) in enumerate(groups.items()):
+        color = palette[i % len(palette)]
+        word_list = ", ".join(_html.escape(w.get("word", "")) for w in ws[:4])
+        if len(ws) > 4:
+            word_list += f" +{len(ws) - 4}"
+        delay = 800 + i * 200
+        badges.append(f"""
+        <div class="aal-cluster-badge" style="border-color: {color};
+             opacity:0; animation: sourceFadeIn 600ms ease-out {delay}ms forwards;">
+          <span class="aal-cluster-dot" style="background:{color}; box-shadow: 0 0 8px {color};"></span>
+          <span class="aal-cluster-name" style="color:{color};">{_html.escape(name)}</span>
+          <span class="aal-cluster-words">{word_list}</span>
+          <svg class="aal-cluster-arrow" viewBox="0 0 24 12" fill="none">
+            <path d="M0 6 H20 M16 2 L20 6 L16 10" stroke="{color}" stroke-width="1.5"/>
+          </svg>
+        </div>
+        """)
+    return f'<div class="aal-cluster-badges">{"".join(badges)}</div>'
+
+
+def render_sources(sources=None, embeddings=None, label="Step 3 \u00b7 Retrieve"):
     if not sources:
         sources = DEMO_SOURCES
+
+    cluster_section = _render_cluster_badges(embeddings)
+
     return f"""
 <div style="background:#06080C; padding: 2.5em 3em 2em; min-height: 72vh;">
   <div style="max-width: 1100px; margin: 0 auto;">
@@ -58,11 +93,18 @@ def render_sources(sources=None, label="Step 3 \u00b7 Retrieve"):
       {_html.escape(label)}
     </div>
     <h2 style="color: #F1F5F9; font-size: 2em; margin-top: 0; font-weight: 600;">
-      The AI pulls from nearby knowledge.
+      The AI searches for knowledge near your words.
     </h2>
-    <p style="color: #64748B; font-size: 1.15em; margin-bottom: 1.5em;">
-      Each source lives near your prompt in vector space. Proximity = relevance.
+    <p style="color: #94A3B8; font-size: 1.15em; margin-bottom: 0.3em;">
+      Your prompt is now a point in vector space. The model finds training data that
+      lives nearby &mdash; &ldquo;nearby&rdquo; means <em>semantically similar</em>,
+      not keyword-matched.
     </p>
+    <p style="color: #64748B; font-size: 1em; margin-bottom: 1.5em;">
+      Each source below was retrieved because its vectors overlap with yours.
+      Higher relevance = closer in the space.
+    </p>
+    {cluster_section}
     <div>{_render_source_rows(sources)}</div>
   </div>
 </div>
@@ -70,6 +112,27 @@ def render_sources(sources=None, label="Step 3 \u00b7 Retrieve"):
 @keyframes sourceFadeIn {{
   from {{ opacity: 0; transform: translateY(12px); }}
   to   {{ opacity: 1; transform: translateY(0); }}
+}}
+.aal-cluster-badges {{
+    display: flex; flex-wrap: wrap; gap: 0.8em; margin-bottom: 1.5em;
+}}
+.aal-cluster-badge {{
+    display: flex; align-items: center; gap: 0.5em;
+    padding: 0.5em 1em; border-radius: 10px;
+    background: rgba(15,23,42,0.7); border: 1px solid;
+}}
+.aal-cluster-dot {{
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}}
+.aal-cluster-name {{
+    font-weight: 600; font-size: 0.9em; text-transform: uppercase;
+    letter-spacing: 0.1em;
+}}
+.aal-cluster-words {{
+    color: #94A3B8; font-size: 0.85em; font-style: italic;
+}}
+.aal-cluster-arrow {{
+    width: 24px; height: 12px; flex-shrink: 0;
 }}
 </style>
 """

@@ -1164,7 +1164,12 @@ def _step_4_bridge() -> str:
 # ---------- audience-mode embed viz (LLM-generated data) ----------
 
 def render_audience_embed(prompt: str, embeddings: dict) -> str:
-    """Render the audience-mode version using LLM-assigned word positions."""
+    """Render the audience-mode embed with a 3-phase animated progression.
+
+    Phase A (0-2s): Sentence breaks into individual words
+    Phase B (2-4s): Vector numbers flash next to each word
+    Phase C (4-7s): Words fly to cluster positions on the scatter plot
+    """
     from collections import defaultdict
 
     words = (embeddings or {}).get("words", []) or []
@@ -1181,69 +1186,155 @@ def render_audience_embed(prompt: str, embeddings: dict) -> str:
         return 100 + max(0.05, min(0.95, float(w.get("x", 0.5)))) * 1300
 
     def _ny(w):
-        # Incoming y is 0.25–0.48. Stretch to fill roughly 130–560.
         raw = float(w.get("y", 0.35))
         return 130 + max(0.0, min(1.0, (raw - 0.1) / 0.6)) * 430
 
-    svg_parts = [f"""
-<div class="tedx-embed-wrapper" style="background:#06080C; width:100%; min-height:74vh; padding: 0.8em 0 2em;">
-  <div style="color:#64748B; font-size: 0.95em; letter-spacing:0.2em; text-transform:uppercase; margin: 0.5em 2.5em 0.3em;">
-    Step 2 &middot; Embed
+    # Phase A: words laid out in a sentence-like grid, then scatter
+    word_start_positions = []
+    cols = min(6, max(3, len(words)))
+    for i, w in enumerate(words):
+        sx = 200 + (i % cols) * 200
+        sy = 200 + (i // cols) * 70
+        word_start_positions.append((sx, sy))
+
+    # Build per-word CSS keyframes
+    word_keyframes = []
+    for i, w in enumerate(words):
+        sx, sy = word_start_positions[i]
+        ex, ey = _nx(w), _ny(w)
+        word_keyframes.append(f"""
+        @keyframes aalWordFly{i} {{
+          0%   {{ transform: translate({sx}px, {sy}px); opacity: 0; }}
+          15%  {{ transform: translate({sx}px, {sy}px); opacity: 1; }}
+          55%  {{ transform: translate({sx}px, {sy}px); opacity: 1; }}
+          100% {{ transform: translate({ex:.0f}px, {ey:.0f}px); opacity: 1; }}
+        }}
+        @keyframes aalVecFlash{i} {{
+          0%, 35%  {{ opacity: 0; }}
+          40%      {{ opacity: 0.9; }}
+          55%      {{ opacity: 0.9; }}
+          60%, 100% {{ opacity: 0; }}
+        }}
+        """)
+
+    parts = [f"""
+<div class="aal-audience-embed-wrap">
+  <div class="aal-audience-embed-header">
+    <div class="aal-audience-embed-eyebrow">Step 2 &middot; Embed</div>
+    <div class="aal-audience-embed-prompt">&ldquo;{_html.escape(prompt)}&rdquo;</div>
   </div>
-  <div style="max-width: 980px; margin: 0.2em auto 1em; padding: 0 2em;">
-    <div style="color:#F1F5F9; font-size: 1.5em; font-style: italic; line-height: 1.45;">&ldquo;{_html.escape(prompt)}&rdquo;</div>
-    <div style="color:#64748B; margin-top: 0.7em; font-size: 1.05em;">
-      Your words became vectors. Each cluster is a region of meaning in the model&rsquo;s space.
-    </div>
+
+  <div class="aal-audience-embed-phases">
+    <div class="aal-phase-label aal-phase-a">The AI breaks your sentence into pieces&hellip;</div>
+    <div class="aal-phase-label aal-phase-b">Each word becomes a vector of numbers&hellip;</div>
+    <div class="aal-phase-label aal-phase-c">Similar meanings land near each other in space.</div>
   </div>
+
   <svg viewBox="0 0 1500 700" xmlns="http://www.w3.org/2000/svg"
-       style="width:100%; height:auto; display:block;"
+       class="aal-audience-embed-svg"
        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
     {SVG_STYLE}
 """]
 
-    # Grid background
+    # Grid background (appears in phase C)
+    grid_parts = []
     for gy in range(120, 601, 60):
-        svg_parts.append(f'<line x1="100" y1="{gy}" x2="1400" y2="{gy}" stroke="#101827" stroke-width="1"/>')
+        grid_parts.append(f'<line x1="100" y1="{gy}" x2="1400" y2="{gy}" stroke="#101827" stroke-width="1"/>')
     for gx in range(100, 1401, 100):
-        svg_parts.append(f'<line x1="{gx}" y1="120" x2="{gx}" y2="600" stroke="#101827" stroke-width="1"/>')
-    svg_parts.append('<line x1="100" y1="600" x2="1400" y2="600" stroke="#475569" stroke-width="2"/>')
-    svg_parts.append('<line x1="100" y1="120" x2="100" y2="600" stroke="#475569" stroke-width="2"/>')
-    svg_parts.append('<text x="750" y="640" text-anchor="middle" font-size="18" fill="#64748B">dimension 1 (of thousands)</text>')
+        grid_parts.append(f'<line x1="{gx}" y1="120" x2="{gx}" y2="600" stroke="#101827" stroke-width="1"/>')
+    grid_parts.append('<line x1="100" y1="600" x2="1400" y2="600" stroke="#475569" stroke-width="2"/>')
+    grid_parts.append('<line x1="100" y1="120" x2="100" y2="600" stroke="#475569" stroke-width="2"/>')
+    grid_parts.append('<text x="750" y="640" text-anchor="middle" font-size="18" fill="#64748B">dimension 1 (of thousands)</text>')
+    parts.append(f'<g class="aal-embed-grid">{"".join(grid_parts)}</g>')
 
-    # Cluster halos (first, so words draw on top)
+    # Cluster halos (appear in phase C)
     for name, ws in groups.items():
         if len(ws) < 2:
             continue
         cx = sum(_nx(w) for w in ws) / len(ws)
         cy = sum(_ny(w) for w in ws) / len(ws)
         color = color_map[name]
-        svg_parts.append(
+        parts.append(
             f'<circle cx="{cx:.0f}" cy="{cy:.0f}" r="130" fill="none" stroke="{color}" '
-            f'stroke-width="2" stroke-dasharray="8,8" opacity="0.5" '
-            f'class="fade-in" style="animation-delay:1800ms"/>'
+            f'stroke-width="2" stroke-dasharray="8,8" opacity="0" '
+            f'class="aal-embed-halo"/>'
         )
-        svg_parts.append(
+        parts.append(
             f'<text x="{cx:.0f}" y="{cy - 142:.0f}" text-anchor="middle" font-size="20" '
-            f'fill="{color}" font-weight="700" class="fade-in" style="animation-delay:2000ms">'
+            f'fill="{color}" font-weight="700" opacity="0" class="aal-embed-halo-label">'
             f'{_html.escape(name)}</text>'
         )
 
-    # Words
+    # Words — positioned at origin, animated via CSS keyframes
     for i, w in enumerate(words):
-        nx = _nx(w)
-        ny = _ny(w)
         color = color_map.get(str(w.get("cluster", "default")), "#F1F5F9")
         text = _html.escape(str(w.get("word", "")))
-        delay = 250 + i * 90
-        svg_parts.append(
-            f'<circle cx="{nx:.0f}" cy="{ny:.0f}" r="9" fill="{color}" '
-            f'class="fade-in" style="animation-delay:{delay}ms"/>'
-        )
-        svg_parts.append(
-            f'<text x="{nx + 14:.0f}" y="{ny + 8:.0f}" font-size="22" fill="{color}" '
-            f'class="fade-in" style="animation-delay:{delay}ms">{text}</text>'
-        )
+        ex, ey = _nx(w), _ny(w)
+        # Vector snippet (shown during phase B)
+        vec_x = round(float(w.get("x", 0.5)), 2)
+        vec_y = round(float(w.get("y", 0.3)), 2)
+        anim_delay = i * 120
+        parts.append(f"""
+        <g style="animation: aalWordFly{i} 6s ease-in-out {anim_delay}ms forwards;
+                  transform: translate(0, 0); opacity: 0;">
+          <circle r="9" fill="{color}"/>
+          <text x="14" y="8" font-size="22" fill="{color}">{text}</text>
+          <text x="14" y="26" font-size="13" fill="#475569" font-family="SF Mono, Menlo, monospace"
+                style="animation: aalVecFlash{i} 6s ease-in-out {anim_delay}ms forwards; opacity:0;">
+            [{vec_x:+.2f}, {vec_y:+.2f}, &hellip;]</text>
+        </g>
+        """)
 
-    svg_parts.append("</svg></div>")
-    return "".join(svg_parts)
+    parts.append("</svg>")
+
+    # Inject the per-word keyframes
+    parts.append(f"<style>{''.join(word_keyframes)}")
+    parts.append("""
+    .aal-audience-embed-wrap {
+        background: #06080C; width: 100%; min-height: 78vh; padding: 0.8em 0 2em;
+        position: relative; overflow: hidden;
+    }
+    .aal-audience-embed-header {
+        max-width: 980px; margin: 0.5em auto 0; padding: 0 2em;
+    }
+    .aal-audience-embed-eyebrow {
+        color: #64748B; font-size: 0.95em; letter-spacing: 0.2em;
+        text-transform: uppercase; margin-bottom: 0.5em;
+    }
+    .aal-audience-embed-prompt {
+        color: #F1F5F9; font-size: 1.5em; font-style: italic; line-height: 1.45;
+    }
+    .aal-audience-embed-phases {
+        max-width: 980px; margin: 0.7em auto 0; padding: 0 2em;
+        height: 2em; position: relative;
+    }
+    .aal-phase-label {
+        position: absolute; top: 0; left: 2em;
+        color: #94A3B8; font-size: 1.05em; opacity: 0;
+    }
+    .aal-phase-a { animation: aalPhaseShow 6s ease-in-out forwards; }
+    .aal-phase-b { animation: aalPhaseShow 6s ease-in-out 2s forwards; }
+    .aal-phase-c { animation: aalPhaseShowStay 6s ease-in-out 3.5s forwards; }
+    @keyframes aalPhaseShow {
+        0%   { opacity: 0; transform: translateY(6px); }
+        10%  { opacity: 1; transform: translateY(0); }
+        40%  { opacity: 1; }
+        55%  { opacity: 0; }
+        100% { opacity: 0; }
+    }
+    @keyframes aalPhaseShowStay {
+        0%   { opacity: 0; transform: translateY(6px); }
+        15%  { opacity: 1; transform: translateY(0); }
+        100% { opacity: 1; }
+    }
+    .aal-audience-embed-svg {
+        width: 100%; height: auto; display: block;
+    }
+    .aal-embed-grid { opacity: 0; animation: aalFadeIn 1s ease-out 3.5s forwards; }
+    .aal-embed-halo { animation: aalFadeIn 800ms ease-out 5s forwards; }
+    .aal-embed-halo-label { animation: aalFadeIn 800ms ease-out 5.2s forwards; }
+    @keyframes aalFadeIn { to { opacity: 1; } }
+    </style>""")
+
+    parts.append("</div>")
+    return "".join(parts)

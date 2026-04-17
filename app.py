@@ -33,11 +33,13 @@ from components.embed_viz import (
 from components.source_list import render_sources
 from components.typewriter import typewriter_html
 from components.compare import render_compare_stage
+from components.audience_compare import render_audience_compare
+from components.influence import render_influence_analysis
 from components.speaker import SPEAKER_HTML
 from components.study import SURPRISING_OPTIONS, study_intro_html, thanks_html
 from components import corpus_slideshow
-from services.claude_api import process_prompt_parallel
-from services.supabase_client import save_study
+from services.claude_api import get_influence_analysis, process_prompt_parallel
+from services.supabase_client import fetch_aggregate_stats, save_influence, save_study
 
 
 # ============================================================
@@ -336,6 +338,7 @@ def handle_audience_submit(prompt):
             0,                     # audience_stage
             "",                    # prompt_state
             {}, {}, "",            # embeddings/sources/response
+            {},                    # influence_state
             "",                    # session_id
             gr.update(value="**Please enter a prompt first.**", visible=True),
         )
@@ -344,10 +347,6 @@ def handle_audience_submit(prompt):
     prompt = prompt.strip()
     session_id = str(uuid.uuid4())
 
-    # 1) Loading state. Use aal-force-show / aal-force-hide classes to
-    # defeat Gradio 6's visibility cascade bug: components originally
-    # mounted with visible=False retain their .hide class even when
-    # later updated to visible=True unless we force it via CSS.
     yield (
         gr.update(visible=False, elem_classes=["aal-force-hide"]),   # hide input
         gr.update(visible=True,  elem_classes=["aal-force-show"]),   # show viz
@@ -355,52 +354,86 @@ def handle_audience_submit(prompt):
         0,
         prompt,
         {}, {}, "",
+        {},
         session_id,
         gr.update(value="", visible=False),
     )
 
-    # 2) Fire the three calls in parallel
     embeddings, sources, response = process_prompt_parallel(prompt)
 
-    # 3) Render the first audience viz stage (embed)
     yield (
         gr.update(visible=False, elem_classes=["aal-force-hide"]),
         gr.update(visible=True,  elem_classes=["aal-force-show"]),
         render_audience_embed(prompt, embeddings),
-        1,  # audience_stage = 1 means embed is showing, next is retrieve
+        1,
         prompt,
         embeddings, sources, response,
+        {},
         session_id,
         gr.update(value="", visible=False),
     )
 
 
-def handle_audience_continue(audience_stage, prompt, embeddings, sources, response):
-    """Advance through audience stages: 1=embed showing -> 2=retrieve, 2=retrieve -> 3=synthesize, 3=synthesize -> 4=study."""
-    print(f"[audience] handle_audience_continue called with audience_stage={audience_stage!r}", flush=True)
+def handle_audience_continue(audience_stage, prompt, embeddings, sources, response,
+                             influence_data, session_id):
+    """Advance through audience stages:
+    1=embed -> 2=retrieve -> 3=synthesize -> 4=influence -> 5=compare -> 6=study
+    """
+    print(f"[audience] continue: stage={audience_stage!r}", flush=True)
+
     if audience_stage == 1:
         srcs = (sources or {}).get("sources") if isinstance(sources, dict) else None
         return (
             gr.update(visible=True),
             gr.update(visible=False),
-            render_sources(srcs, label="Step 3 \u00b7 Retrieve"),
+            render_sources(srcs, embeddings=embeddings, label="Step 3 \u00b7 Retrieve"),
             2,
+            influence_data,
         )
+
     if audience_stage == 2:
         return (
             gr.update(visible=True),
             gr.update(visible=False),
             typewriter_html(response or "(no response)"),
             3,
+            influence_data,
         )
+
     if audience_stage == 3:
+        # Fire influence analysis (sequential — needs the response)
+        inf = get_influence_analysis(prompt, response or "")
+        return (
+            gr.update(visible=True),
+            gr.update(visible=False),
+            render_influence_analysis(response or "", inf),
+            4,
+            inf,
+        )
+
+    if audience_stage == 4:
+        # Save influence data, fetch aggregates, show compare
+        save_influence(session_id, influence_data)
+        stats = fetch_aggregate_stats()
+        return (
+            gr.update(visible=True),
+            gr.update(visible=False),
+            render_audience_compare(stats),
+            5,
+            influence_data,
+        )
+
+    if audience_stage == 5:
+        # Transition to study questions
         return (
             gr.update(visible=False, elem_classes=["aal-force-hide"]),
             gr.update(visible=True, elem_classes=["aal-force-show"]),
-            gr.update(),                # leave audience_display as-is
-            4,
+            gr.update(),
+            6,
+            influence_data,
         )
-    return gr.update(), gr.update(), gr.update(), audience_stage
+
+    return gr.update(), gr.update(), gr.update(), audience_stage, influence_data
 
 
 def handle_study_submit(session_id, prompt, q1, q2, q3):
@@ -471,6 +504,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
     embeddings_state = gr.State({})
     sources_state = gr.State({})
     response_state = gr.State("")
+    influence_state = gr.State({})
     session_id_state = gr.State("")
     corpus_idx = gr.State(0)
 
@@ -715,6 +749,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
             audience_input_group, audience_viz_group, audience_display,
             audience_stage, prompt_state,
             embeddings_state, sources_state, response_state,
+            influence_state,
             session_id_state, prompt_err,
         ],
         show_progress="hidden",
@@ -722,8 +757,10 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
 
     continue_btn.click(
         handle_audience_continue,
-        inputs=[audience_stage, prompt_state, embeddings_state, sources_state, response_state],
-        outputs=[audience_viz_group, study_group, audience_display, audience_stage],
+        inputs=[audience_stage, prompt_state, embeddings_state, sources_state,
+                response_state, influence_state, session_id_state],
+        outputs=[audience_viz_group, study_group, audience_display, audience_stage,
+                 influence_state],
     )
 
     study_submit_btn.click(

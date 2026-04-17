@@ -5,6 +5,7 @@ SURPRISING_OPTIONS = [
     ("embed",      "The embedding step \u2014 words becoming numbers"),
     ("retrieve",   "The retrieval step \u2014 finding nearby sources"),
     ("synthesize", "The synthesis step \u2014 stitching it into a response"),
+    ("influence",  "The influence analysis \u2014 seeing persuasion techniques identified"),
     ("none",       "Nothing really surprised me"),
 ]
 
