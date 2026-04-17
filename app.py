@@ -377,77 +377,75 @@ def handle_audience_submit(prompt):
 def handle_audience_continue(audience_stage, prompt, embeddings, sources, response,
                              influence_data, session_id):
     """Advance through audience stages:
-    1=embed -> 2=retrieve -> 3=synthesize -> 4=influence -> 5=compare -> 6=study
+    1=embed → 2=retrieve → 3=synthesize → 4=influence → 5=study → 6=compare → 7=thanks
     """
+    # Returns: (audience_viz_group, study_group, thanks_group,
+    #           audience_display, audience_stage, influence_state)
     print(f"[audience] continue: stage={audience_stage!r}", flush=True)
+    _no = gr.update()
 
     if audience_stage == 1:
         srcs = (sources or {}).get("sources") if isinstance(sources, dict) else None
         return (
-            gr.update(visible=True),
-            gr.update(visible=False),
+            gr.update(visible=True), _no, _no,
             render_sources(srcs, embeddings=embeddings, label="Step 3 \u00b7 Retrieve"),
-            2,
-            influence_data,
+            2, influence_data,
         )
 
     if audience_stage == 2:
         return (
-            gr.update(visible=True),
-            gr.update(visible=False),
+            gr.update(visible=True), _no, _no,
             typewriter_html(response or "(no response)"),
-            3,
-            influence_data,
+            3, influence_data,
         )
 
     if audience_stage == 3:
-        # Fire influence analysis (sequential — needs the response)
         inf = get_influence_analysis(prompt, response or "")
         return (
-            gr.update(visible=True),
-            gr.update(visible=False),
+            gr.update(visible=True), _no, _no,
             render_influence_analysis(response or "", inf),
-            4,
-            inf,
+            4, inf,
         )
 
     if audience_stage == 4:
-        # Save influence data, fetch aggregates, show compare
+        # Influence done → transition to study questions
         save_influence(session_id, influence_data)
-        stats = fetch_aggregate_stats()
-        return (
-            gr.update(visible=True),
-            gr.update(visible=False),
-            render_audience_compare(stats),
-            5,
-            influence_data,
-        )
-
-    if audience_stage == 5:
-        # Transition to study questions
         return (
             gr.update(visible=False, elem_classes=["aal-force-hide"]),
             gr.update(visible=True, elem_classes=["aal-force-show"]),
-            gr.update(),
-            6,
-            influence_data,
+            _no,
+            _no, 5, influence_data,
         )
 
-    return gr.update(), gr.update(), gr.update(), audience_stage, influence_data
+    if audience_stage == 6:
+        # Compare done → transition to thanks
+        return (
+            gr.update(visible=False, elem_classes=["aal-force-hide"]),
+            _no,
+            gr.update(visible=True, elem_classes=["aal-force-show"]),
+            _no, 7, influence_data,
+        )
+
+    return _no, _no, _no, _no, audience_stage, influence_data
 
 
 def handle_study_submit(session_id, prompt, q1, q2, q3):
     if not q1:
         return (
-            gr.update(),
-            gr.update(),
+            gr.update(),                 # study_group
+            gr.update(),                 # audience_viz_group
+            gr.update(),                 # audience_display
+            6,                           # audience_stage
             gr.update(value="**Please answer question 1 before submitting.**", visible=True),
         )
     save_study(session_id, prompt, q1, q2, q3)
+    stats = fetch_aggregate_stats()
     return (
         gr.update(visible=False, elem_classes=["aal-force-hide"]),   # hide study
-        gr.update(visible=True, elem_classes=["aal-force-show"]),    # show thanks
-        gr.update(value="", visible=False),
+        gr.update(visible=True, elem_classes=["aal-force-show"]),    # show viz with compare
+        render_audience_compare(stats),                               # audience_display
+        6,                                                            # audience_stage
+        gr.update(value="", visible=False),                          # study_err
     )
 
 
@@ -759,14 +757,15 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         handle_audience_continue,
         inputs=[audience_stage, prompt_state, embeddings_state, sources_state,
                 response_state, influence_state, session_id_state],
-        outputs=[audience_viz_group, study_group, audience_display, audience_stage,
-                 influence_state],
+        outputs=[audience_viz_group, study_group, thanks_group,
+                 audience_display, audience_stage, influence_state],
     )
 
     study_submit_btn.click(
         handle_study_submit,
         inputs=[session_id_state, prompt_state, q1, q2, q3],
-        outputs=[study_group, thanks_group, study_err],
+        outputs=[study_group, audience_viz_group, audience_display,
+                 audience_stage, study_err],
     )
 
     # Install keyboard listener on page load (Gradio 6: js= must go on .load())

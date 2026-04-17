@@ -82,7 +82,7 @@ def render_audience_compare(stats: dict) -> str:
   </div>
 
   <div class="aal-agg-inner">
-    <div class="aal-agg-eyebrow">Step 6 &middot; How Everyone Answered</div>
+    <div class="aal-agg-eyebrow">Step 7 &middot; How Everyone Answered</div>
     <h2 class="aal-agg-title">You&rsquo;re not alone. Here&rsquo;s how others reacted.</h2>
     <p class="aal-agg-subtitle">{participant_text} have completed this experience so far.</p>
 
