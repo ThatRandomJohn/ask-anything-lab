@@ -21,10 +21,18 @@ import gradio as gr
 
 from data.demo import PROMPT, REFLECT_QUOTE, RESPONSE
 from components.landing import LANDING_HTML
-from components.embed_viz import render_embed_step, render_audience_embed
+from components.embed_viz import (
+    render_audience_embed,
+    render_bridge_stage,
+    render_embed_step,
+    render_embed_vector_stage,
+    stage_progress,
+)
 from components.source_list import render_sources
 from components.typewriter import typewriter_html
+from components.compare import render_compare_stage
 from components.study import SURPRISING_OPTIONS, study_intro_html, thanks_html
+from components import corpus_slideshow
 from services.claude_api import process_prompt_parallel
 from services.supabase_client import save_study
 
@@ -33,35 +41,66 @@ from services.supabase_client import save_study
 # Presenter-mode stage rendering
 # ============================================================
 
-# Top-level stages: 0=Input, 1=Embed (6 sub-steps), 2=Retrieve, 3=Synthesize, 4=Reflect
-EMBED_SUBSTEPS = 6
+# Tight 5-stage presenter deck (TEDx format). Every click earns its moment:
+#   0 Input     — chat-input typing of the prompt
+#   1 Embed     — vector space with clusters forming
+#   2 Bridge    — AI patterns gather + bridge lines draw
+#   3 Compare   — cold vs warm empirical proof
+#   4 Reflect   — closing quote
+#
+# Audience mode still uses the original 5-sub-step embed + retrieve +
+# synthesize flow (self-paced, full experience). embed_step remains in
+# state for audience-mode compatibility but presenter mode ignores it.
+LAST_STAGE = 4
+EMBED_SUBSTEPS = 5
 
 
 def render_presenter_stage(stage: int, embed_step: int) -> str:
     if stage == 0:
         return _render_input_stage()
     if stage == 1:
-        return render_embed_step(embed_step)
+        return render_embed_vector_stage()
     if stage == 2:
-        return render_sources(label="Step 3 \u00b7 Retrieve")
+        return render_bridge_stage()
     if stage == 3:
-        return typewriter_html(RESPONSE)
+        return render_compare_stage()
     if stage == 4:
         return _render_reflect_stage()
     return _render_input_stage()
 
 
 def _render_input_stage() -> str:
-    escaped = _html.escape(PROMPT)
+    # Character-by-character reveal. Each char gets a staggered fade
+    # so the sentence appears to be typed, ending with a blinking caret.
+    per_char_ms = 32
+    chars = []
+    for i, ch in enumerate(PROMPT):
+        delay = 700 + i * per_char_ms
+        if ch == " ":
+            chars.append(f'<span class="aal-typed" style="animation-delay:{delay}ms">&nbsp;</span>')
+        else:
+            chars.append(
+                f'<span class="aal-typed" style="animation-delay:{delay}ms">{_html.escape(ch)}</span>'
+            )
+    typed_html = "".join(chars)
+    caret_delay = 700 + len(PROMPT) * per_char_ms + 100
+    footer_delay = caret_delay + 400
     return f"""
-<div style="background:#06080C; padding: 5em 3em; min-height: 82vh; display:flex; flex-direction:column; justify-content:center;">
-  <div style="max-width: 1100px; margin: 0 auto; text-align: center;">
-    <div style="color:#64748B; font-size:1em; letter-spacing:0.22em; text-transform:uppercase; margin-bottom:1em;">Step 1 &middot; Input</div>
-    <div style="color:#475569; font-size:1.2em; margin-bottom:1.5em;">Imagine you just typed this into ChatGPT.</div>
-    <div style="color:#F1F5F9; font-size:2.4em; font-style:italic; line-height:1.4; padding:1em 0;">
-      &ldquo;{escaped}&rdquo;
+<div class="aal-input-stage">
+  <div class="aal-input-topbar">
+    <div class="aal-input-eyebrow">Step 1 &middot; Input</div>
+    <div>{stage_progress(0)}</div>
+  </div>
+  <div class="aal-input-subtitle">Imagine you just typed this into ChatGPT.</div>
+  <div class="aal-chat-input">
+    <div class="aal-chat-label">
+      <span class="aal-chat-label-dot"></span>
+      Your prompt
     </div>
-    <div style="color:#64748B; margin-top:2em; font-size:1.05em;">Press &rarr; to watch what happens next.</div>
+    <div class="aal-chat-text">&ldquo;{typed_html}&rdquo;<span class="aal-caret" style="animation-delay:{caret_delay}ms"></span></div>
+  </div>
+  <div class="aal-input-footer" style="--aal-footer-delay: {footer_delay}ms;">
+    Press &rarr; to watch what happens next.
   </div>
 </div>
 """
@@ -69,12 +108,17 @@ def _render_input_stage() -> str:
 
 def _render_reflect_stage() -> str:
     return f"""
-<div style="background:#06080C; padding: 6em 3em; min-height: 82vh; display:flex; flex-direction:column; justify-content:center; text-align:center;">
-  <div style="color:#F59E0B; font-size:1em; letter-spacing:0.22em; text-transform:uppercase; margin-bottom:1.5em;">Step 5 &middot; Reflect</div>
-  <div style="color:#F1F5F9; font-size:3em; font-weight:700; max-width:1100px; margin:0 auto; line-height:1.3; font-style:italic;">
-    &ldquo;{_html.escape(REFLECT_QUOTE)}&rdquo;
+<div class="aal-reflect-wrap">
+  <div class="aal-reflect-topbar">
+    <div class="aal-reflect-eyebrow">Step 5 &middot; Reflect</div>
+    <div>{stage_progress(4)}</div>
   </div>
-  <div style="color:#64748B; margin-top:2.5em; font-size:1.1em;">&mdash; Ask Anything</div>
+  <div class="aal-reflect-body">
+    <div class="aal-reflect-quote">
+      &ldquo;{_html.escape(REFLECT_QUOTE)}&rdquo;
+    </div>
+    <div class="aal-reflect-attribution">&mdash; Ask Anything</div>
+  </div>
 </div>
 """
 
@@ -84,34 +128,15 @@ def _render_reflect_stage() -> str:
 # ============================================================
 
 def advance(stage: int, embed_step: int):
-    if stage == 0:
-        return 1, 0
-    if stage == 1:
-        if embed_step < EMBED_SUBSTEPS - 1:
-            return 1, embed_step + 1
-        return 2, 0
-    if stage == 2:
-        return 3, 0
-    if stage == 3:
-        return 4, 0
-    return 4, 0
+    if stage >= LAST_STAGE:
+        return LAST_STAGE, 0
+    return stage + 1, 0
 
 
 def retreat(stage: int, embed_step: int):
-    if stage == 0:
+    if stage <= 0:
         return 0, 0
-    if stage == 1:
-        if embed_step > 0:
-            return 1, embed_step - 1
-        return 0, 0
-    if stage == 2:
-        # Going back from Retrieve returns to the LAST embed sub-step, not the first.
-        return 1, EMBED_SUBSTEPS - 1
-    if stage == 3:
-        return 2, 0
-    if stage == 4:
-        return 3, 0
-    return 0, 0
+    return stage - 1, 0
 
 
 def on_forward(stage: int, embed_step: int):
@@ -128,58 +153,152 @@ def on_back(stage: int, embed_step: int):
 # Mode switching
 # ============================================================
 
+# Shorthand for Gradio 6 visibility-cascade workaround. Every navigation
+# function must set these classes explicitly or stale state from earlier
+# screens (e.g. aal-force-show left on audience_viz_group after a submit)
+# will keep that column displayed on top of whatever you navigate to next.
+_SHOW = ["aal-force-show"]
+_HIDE = ["aal-force-hide"]
+
+
 def enter_presenter():
     return (
-        gr.update(visible=False),   # landing_view
-        gr.update(visible=True),    # presenter_view
-        gr.update(visible=False),   # audience_input_group
-        gr.update(visible=False),   # audience_viz_group
-        gr.update(visible=False),   # study_group
-        gr.update(visible=False),   # thanks_group
-        0, 0,                       # stage, embed_step
+        gr.update(visible=False, elem_classes=_HIDE),   # landing_view
+        gr.update(visible=True,  elem_classes=_SHOW),   # presenter_view
+        gr.update(visible=False, elem_classes=_HIDE),   # audience_input_group
+        gr.update(visible=False, elem_classes=_HIDE),   # audience_viz_group
+        gr.update(visible=False, elem_classes=_HIDE),   # study_group
+        gr.update(visible=False, elem_classes=_HIDE),   # thanks_group
+        gr.update(visible=False, elem_classes=_HIDE),   # corpus_view
+        0, 0,                                            # stage, embed_step
         render_presenter_stage(0, 0),
     )
 
 
 def enter_audience():
     return (
-        gr.update(visible=False),   # landing_view
-        gr.update(visible=False),   # presenter_view
-        gr.update(visible=True),    # audience_input_group
-        gr.update(visible=False),   # audience_viz_group
-        gr.update(visible=False),   # study_group
-        gr.update(visible=False),   # thanks_group
-        "",                         # prompt_box reset
-        0,                          # audience_stage reset
+        gr.update(visible=False, elem_classes=_HIDE),   # landing_view
+        gr.update(visible=False, elem_classes=_HIDE),   # presenter_view
+        gr.update(visible=True,  elem_classes=_SHOW),   # audience_input_group
+        gr.update(visible=False, elem_classes=_HIDE),   # audience_viz_group
+        gr.update(visible=False, elem_classes=_HIDE),   # study_group
+        gr.update(visible=False, elem_classes=_HIDE),   # thanks_group
+        gr.update(visible=False, elem_classes=_HIDE),   # corpus_view
+        "",                                              # prompt_box reset
+        0,                                               # audience_stage reset
+    )
+
+
+def enter_corpus():
+    return (
+        gr.update(visible=False, elem_classes=_HIDE),   # landing_view
+        gr.update(visible=False, elem_classes=_HIDE),   # presenter_view
+        gr.update(visible=False, elem_classes=_HIDE),   # audience_input_group
+        gr.update(visible=False, elem_classes=_HIDE),   # audience_viz_group
+        gr.update(visible=False, elem_classes=_HIDE),   # study_group
+        gr.update(visible=False, elem_classes=_HIDE),   # thanks_group
+        gr.update(visible=True,  elem_classes=_SHOW),   # corpus_view
+        0,                                               # corpus_idx reset
+        corpus_slideshow.slide_html(0),                  # corpus_slide
     )
 
 
 def go_home():
     return (
-        gr.update(visible=True),    # landing_view
-        gr.update(visible=False),   # presenter_view
-        gr.update(visible=False),   # audience_input_group
-        gr.update(visible=False),   # audience_viz_group
-        gr.update(visible=False),   # study_group
-        gr.update(visible=False),   # thanks_group
-        0, 0,                       # stage, embed_step
+        gr.update(visible=True,  elem_classes=_SHOW),   # landing_view
+        gr.update(visible=False, elem_classes=_HIDE),   # presenter_view
+        gr.update(visible=False, elem_classes=_HIDE),   # audience_input_group
+        gr.update(visible=False, elem_classes=_HIDE),   # audience_viz_group
+        gr.update(visible=False, elem_classes=_HIDE),   # study_group
+        gr.update(visible=False, elem_classes=_HIDE),   # thanks_group
+        gr.update(visible=False, elem_classes=_HIDE),   # corpus_view
+        0, 0,                                            # stage, embed_step
     )
+
+
+# ============================================================
+# Corpus slideshow handlers
+# ============================================================
+
+def on_corpus_forward(idx: int):
+    new_idx = corpus_slideshow.advance(idx)
+    return new_idx, corpus_slideshow.slide_html(new_idx)
+
+
+def on_corpus_back(idx: int):
+    new_idx = corpus_slideshow.retreat(idx)
+    return new_idx, corpus_slideshow.slide_html(new_idx)
 
 
 # ============================================================
 # Audience-mode handlers
 # ============================================================
 
-def _loading_html(msg: str) -> str:
+def _loading_html(prompt: str = "") -> str:
+    # Float up to 10 real tokens from the user's prompt so the thinking
+    # screen feels grounded in what they typed.
+    words = [w.strip(".,!?\u2019\u201c\u201d\"'") for w in (prompt or "").split() if len(w) > 2][:10]
+    floaters = ""
+    for i, w in enumerate(words):
+        delay = i * 280
+        left = 6 + (i * 9) % 86  # spread horizontally across the container
+        floaters += (
+            f'<span class="aal-think-token" '
+            f'style="left:{left}%; animation-delay:{delay}ms;">'
+            f'{_html.escape(w)}</span>'
+        )
     return f"""
-<div style="background:#06080C; padding: 6em 2em; min-height: 60vh; text-align:center;">
-  <div style="color:#F1F5F9; font-size:1.6em; margin-bottom:0.6em;">{_html.escape(msg)}</div>
-  <div style="color:#64748B; font-size:1.1em;">Claude is processing your prompt in parallel across three calls&hellip;</div>
-  <div class="tedx-spinner" style="margin: 2.5em auto 0; width: 56px; height: 56px; border: 4px solid #1E293B; border-top-color:#F59E0B; border-radius:50%; animation: tedxSpin 900ms linear infinite;"></div>
+<div class="aal-think-wrap">
+  <div class="aal-think-aurora">
+    <div class="aal-think-blob aal-think-blob-a"></div>
+    <div class="aal-think-blob aal-think-blob-b"></div>
+    <div class="aal-think-blob aal-think-blob-c"></div>
+  </div>
+
+  <div class="aal-think-floaters">{floaters}</div>
+
+  <div class="aal-think-center">
+    <div class="aal-think-eyebrow">
+      <span class="aal-think-eyebrow-dot"></span>
+      Processing
+    </div>
+    <h2 class="aal-think-title">
+      <span class="aal-think-cycle">
+        <span>Embedding your words</span>
+        <span>Retrieving nearby knowledge</span>
+        <span>Synthesizing a response</span>
+      </span>
+    </h2>
+    <div class="aal-think-sub">Three parallel API calls \u2014 hang on a few seconds.</div>
+
+    <div class="aal-think-tasks">
+      <div class="aal-think-task aal-task-embed">
+        <div class="aal-think-task-dot"></div>
+        <div class="aal-think-task-body">
+          <div class="aal-think-task-title">Embed</div>
+          <div class="aal-think-task-sub">words \u2192 vectors</div>
+        </div>
+        <div class="aal-think-shimmer"></div>
+      </div>
+      <div class="aal-think-task aal-task-retrieve">
+        <div class="aal-think-task-dot"></div>
+        <div class="aal-think-task-body">
+          <div class="aal-think-task-title">Retrieve</div>
+          <div class="aal-think-task-sub">nearby sources</div>
+        </div>
+        <div class="aal-think-shimmer"></div>
+      </div>
+      <div class="aal-think-task aal-task-synthesize">
+        <div class="aal-think-task-dot"></div>
+        <div class="aal-think-task-body">
+          <div class="aal-think-task-title">Synthesize</div>
+          <div class="aal-think-task-sub">stitch the answer</div>
+        </div>
+        <div class="aal-think-shimmer"></div>
+      </div>
+    </div>
+  </div>
 </div>
-<style>
-@keyframes tedxSpin {{ to {{ transform: rotate(360deg); }} }}
-</style>
 """
 
 
@@ -201,11 +320,14 @@ def handle_audience_submit(prompt):
     prompt = prompt.strip()
     session_id = str(uuid.uuid4())
 
-    # 1) Loading state
+    # 1) Loading state. Use aal-force-show / aal-force-hide classes to
+    # defeat Gradio 6's visibility cascade bug: components originally
+    # mounted with visible=False retain their .hide class even when
+    # later updated to visible=True unless we force it via CSS.
     yield (
-        gr.update(visible=False),   # hide input
-        gr.update(visible=True),    # show viz
-        _loading_html("Embedding your words\u2026"),
+        gr.update(visible=False, elem_classes=["aal-force-hide"]),   # hide input
+        gr.update(visible=True,  elem_classes=["aal-force-show"]),   # show viz
+        _loading_html(prompt),
         0,
         prompt,
         {}, {}, "",
@@ -218,8 +340,8 @@ def handle_audience_submit(prompt):
 
     # 3) Render the first audience viz stage (embed)
     yield (
-        gr.update(visible=False),
-        gr.update(visible=True),
+        gr.update(visible=False, elem_classes=["aal-force-hide"]),
+        gr.update(visible=True,  elem_classes=["aal-force-show"]),
         render_audience_embed(prompt, embeddings),
         1,  # audience_stage = 1 means embed is showing, next is retrieve
         prompt,
@@ -284,17 +406,22 @@ KEYBOARD_JS = """
     const ae = document.activeElement;
     const tag = ae ? ae.tagName : '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
-    const pv = document.querySelector('#presenter_view');
-    if (!pv || pv.offsetParent === null) return;  // only active when presenter mode is visible
     const forward = ['ArrowRight', ' ', 'PageDown', 'ArrowDown', 'Enter'];
     const back    = ['ArrowLeft',  'PageUp',  'ArrowUp',  'Backspace'];
+    const pv = document.querySelector('#presenter_view');
+    const cv = document.querySelector('#corpus_view');
+    const presenterVisible = pv && pv.offsetParent !== null;
+    const corpusVisible    = cv && cv.offsetParent !== null;
+    if (!presenterVisible && !corpusVisible) return;
+    const fwdSel = presenterVisible ? '#forward_btn' : '#corpus_forward_btn';
+    const backSel = presenterVisible ? '#back_btn'    : '#corpus_back_btn';
     if (forward.includes(e.key)) {
       e.preventDefault();
-      const fb = document.querySelector('#forward_btn button') || document.querySelector('#forward_btn');
+      const fb = document.querySelector(fwdSel + ' button') || document.querySelector(fwdSel);
       if (fb) fb.click();
     } else if (back.includes(e.key)) {
       e.preventDefault();
-      const bb = document.querySelector('#back_btn button') || document.querySelector('#back_btn');
+      const bb = document.querySelector(backSel + ' button') || document.querySelector(backSel);
       if (bb) bb.click();
     }
   });
@@ -321,6 +448,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
     sources_state = gr.State({})
     response_state = gr.State("")
     session_id_state = gr.State("")
+    corpus_idx = gr.State(0)
 
     # ============================================================
     # Landing view
@@ -328,12 +456,14 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
     with gr.Column(visible=True, elem_id="landing_view") as landing_view:
         gr.HTML(LANDING_HTML)
         with gr.Row(elem_classes=["tedx-cta"]):
-            with gr.Column(scale=1): pass
-            with gr.Column(scale=2):
-                go_presenter_btn = gr.Button("Presenter Demo", variant="primary")
-            with gr.Column(scale=2):
-                go_audience_btn = gr.Button("Try It Yourself", variant="secondary")
-            with gr.Column(scale=1): pass
+            with gr.Column(scale=2): pass
+            with gr.Column(scale=2, elem_classes=["aal-cta-ghost"]):
+                go_presenter_btn = gr.Button("Presenter Demo", variant="secondary")
+            with gr.Column(scale=3, elem_classes=["aal-cta-primary"]):
+                go_audience_btn = gr.Button("Try It Yourself  \u2192", variant="primary")
+            with gr.Column(scale=2, elem_classes=["aal-cta-ghost"]):
+                go_corpus_btn = gr.Button("The Corpus Deck", variant="secondary")
+            with gr.Column(scale=2): pass
         gr.HTML("""
         <div style="text-align:center; color:#475569; margin: 2em 0 3em; font-size:0.95em;">
           TEDx &middot; May 1, 2026 &middot;
@@ -428,6 +558,19 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
             with gr.Column(scale=2): pass
 
     # ============================================================
+    # Corpus slideshow view
+    # ============================================================
+    with gr.Column(visible=False, elem_id="corpus_view") as corpus_view:
+        corpus_slide = gr.HTML(value=corpus_slideshow.slide_html(0))
+        with gr.Row():
+            with gr.Column(scale=1):
+                home_btn_c = gr.Button("\u2190 Home", size="sm")
+            with gr.Column(scale=4): pass
+        # Hidden keyboard-proxy buttons (styled off-screen by CSS)
+        corpus_forward_btn = gr.Button("corpus forward", elem_id="corpus_forward_btn")
+        corpus_back_btn = gr.Button("corpus back", elem_id="corpus_back_btn")
+
+    # ============================================================
     # Event wiring
     # ============================================================
 
@@ -436,6 +579,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[
             landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
+            corpus_view,
             stage, embed_step, presenter_display,
         ],
     )
@@ -445,7 +589,18 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[
             landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
+            corpus_view,
             prompt_box, audience_stage,
+        ],
+    )
+
+    go_corpus_btn.click(
+        enter_corpus,
+        outputs=[
+            landing_view, presenter_view,
+            audience_input_group, audience_viz_group, study_group, thanks_group,
+            corpus_view,
+            corpus_idx, corpus_slide,
         ],
     )
 
@@ -454,6 +609,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[
             landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
+            corpus_view,
             stage, embed_step,
         ],
     )
@@ -462,8 +618,29 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         outputs=[
             landing_view, presenter_view,
             audience_input_group, audience_viz_group, study_group, thanks_group,
+            corpus_view,
             stage, embed_step,
         ],
+    )
+    home_btn_c.click(
+        go_home,
+        outputs=[
+            landing_view, presenter_view,
+            audience_input_group, audience_viz_group, study_group, thanks_group,
+            corpus_view,
+            stage, embed_step,
+        ],
+    )
+
+    corpus_forward_btn.click(
+        on_corpus_forward,
+        inputs=[corpus_idx],
+        outputs=[corpus_idx, corpus_slide],
+    )
+    corpus_back_btn.click(
+        on_corpus_back,
+        inputs=[corpus_idx],
+        outputs=[corpus_idx, corpus_slide],
     )
 
     forward_btn.click(
@@ -486,6 +663,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
             embeddings_state, sources_state, response_state,
             session_id_state, prompt_err,
         ],
+        show_progress="hidden",
     )
 
     continue_btn.click(
@@ -507,8 +685,9 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
 if __name__ == "__main__":
     demo.launch(
         server_name="0.0.0.0",
-        server_port=7860,
+        server_port=int(os.environ.get("PORT", os.environ.get("AAL_PORT", "7860"))),
         show_error=True,
         theme=gr.themes.Base(primary_hue="blue", neutral_hue="slate"),
         css=_load_css(),
+        allowed_paths=[corpus_slideshow.slides_dir()],
     )
