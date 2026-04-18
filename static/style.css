@@ -86,6 +86,22 @@ footer { display: none !important; }
     isolation: isolate;
 }
 
+.aal-hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: url('/file=static/hero-bg.jpg');
+    background-size: cover;
+    background-position: center 30%;
+    filter: brightness(0.18) saturate(0.4);
+    opacity: 0.7;
+    animation: aalHeroBgIn 2s ease-out forwards;
+}
+@keyframes aalHeroBgIn {
+    from { opacity: 0; transform: scale(1.05); }
+    to   { opacity: 0.7; transform: scale(1); }
+}
+
 .aal-aurora {
     position: absolute;
     inset: 0;

@@ -779,5 +779,8 @@ if __name__ == "__main__":
         show_error=True,
         theme=gr.themes.Base(primary_hue="blue", neutral_hue="slate"),
         css=_load_css(),
-        allowed_paths=[corpus_slideshow.slides_dir()],
+        allowed_paths=[
+            corpus_slideshow.slides_dir(),
+            os.path.join(os.path.dirname(__file__), "static"),
+        ],
     )

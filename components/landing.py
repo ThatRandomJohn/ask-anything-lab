@@ -2,6 +2,7 @@
 
 LANDING_HTML = """
 <div class="aal-landing">
+  <div class="aal-hero-bg"></div>
   <div class="aal-aurora">
     <div class="aal-aurora-blob aal-blob-orange"></div>
     <div class="aal-aurora-blob aal-blob-cyan"></div>
