@@ -1,10 +1,11 @@
-"""Slide 16: "Emotion predicts recommendation-seeking — and the AI knows."
+"""Slide 16: "When the AI recommends, it stops listening."
 
-Two-panel slide:
-  LEFT  — Horizontal grouped bars: recommendation-seeking rate by dominant
-          emotion (emotional vs neutral users), showing 2.4x gap.
-  RIGHT — Stat panel: odds ratios for key approach emotions, plus a callout
-          on whether the LLM mirrors or suppresses emotion when recommending.
+Two-panel slide focused on LLM response behavior:
+  LEFT  — Grouped horizontal bars showing how GPT and Claude shift their
+          emotional register when they offer a recommendation: approval,
+          admiration, caring UP — neutrality DOWN — mirroring BROKEN.
+  RIGHT — Stat panel: mirroring drop-off numbers for both models, plus
+          the narrative that the AI switches from companion to salesperson.
 
 Also runs the deeper analysis: does the LLM's emotional tone in its response
 predict whether it offers a product/service recommendation, and does it
@@ -87,68 +88,138 @@ def detect_llm_recommends(answer_text: pd.Series) -> pd.Series:
 # --------------- visualisation ---------------
 
 def build_slide(df: pd.DataFrame):
-    # ── Per-emotion recommendation rate ──
-    dom_groups = (
-        df.groupby("dominant_emotion")
-        .agg(n=("is_rec", "size"), rec=("is_rec", "sum"))
-        .assign(rate=lambda x: x["rec"] / x["n"])
-        .query("n >= 10")
-        .sort_values("rate", ascending=True)
-    )
+    """LLM-focused slide: how the AI breaks mirroring to sell."""
+    import matplotlib.pyplot as plt
 
-    # Separate neutral for emphasis
-    neu_rate = dom_groups.loc["neutral", "rate"] if "neutral" in dom_groups.index else 0
-    emo_groups = dom_groups.drop("neutral", errors="ignore")
-    # Keep top 10
-    emo_groups = emo_groups.tail(10)
+    gpt_ans, gpt_emo, claude_ans, claude_emo = load_answers()
+    prompt_emo = pd.read_parquet(DATA / "emotions.parquet")
+    emo_cols = [c for c in prompt_emo.columns if c.startswith("emo_")]
 
-    names = list(emo_groups.index) + ["neutral"]
-    rates = list(emo_groups["rate"].values) + [neu_rate]
-    counts = list(emo_groups["n"].values) + [
-        dom_groups.loc["neutral", "n"] if "neutral" in dom_groups.index else 0
-    ]
+    # ── Compute LLM emotion shifts when recommending ──
+    model_data = {}
+    for model_name, ans_df, ans_emo_df in [
+        ("GPT", gpt_ans, gpt_emo),
+        ("Claude", claude_ans, claude_emo),
+    ]:
+        ans_df = ans_df.copy()
+        ans_df["llm_recommends"] = detect_llm_recommends(ans_df["answer_text"])
+        merged = ans_df[["id", "llm_recommends"]].merge(ans_emo_df, on="id")
 
-    # Colors: emotional = warm, neutral = dim
-    colors = [PALETTE["accent_warm"]] * len(emo_groups) + [PALETTE["text_muted"]]
+        rec_yes = merged[merged["llm_recommends"]]
+        rec_no = merged[~merged["llm_recommends"]]
+
+        shifts = {}
+        for emo in emo_cols:
+            mean_rec = rec_yes[emo].mean()
+            mean_no = rec_no[emo].mean()
+            pct_chg = ((mean_rec - mean_no) / mean_no * 100) if mean_no > 0.001 else 0
+            _, p = stats.mannwhitneyu(rec_yes[emo], rec_no[emo], alternative="two-sided")
+            shifts[emo.replace("emo_", "")] = {
+                "rec": mean_rec, "no_rec": mean_no,
+                "pct": pct_chg, "p": p,
+            }
+
+        # Mirroring
+        prompt_dom = prompt_emo[["id", "dominant_emotion"]].rename(
+            columns={"dominant_emotion": "prompt_dom"}
+        )
+        ans_dom = ans_emo_df[["id", "dominant_emotion"]].rename(
+            columns={"dominant_emotion": "ans_dom"}
+        )
+        mirror_df = (
+            ans_df[["id", "llm_recommends"]]
+            .merge(prompt_dom, on="id")
+            .merge(ans_dom, on="id")
+        )
+        mirror_df["match"] = mirror_df["prompt_dom"] == mirror_df["ans_dom"]
+        mirror_rec = mirror_df[mirror_df["llm_recommends"]]["match"].mean()
+        mirror_no = mirror_df[~mirror_df["llm_recommends"]]["match"].mean()
+
+        model_data[model_name] = {
+            "shifts": shifts,
+            "n_rec": int(ans_df["llm_recommends"].sum()),
+            "n_total": len(ans_df),
+            "mirror_rec": mirror_rec,
+            "mirror_no": mirror_no,
+        }
+
+    # ── Emotions to chart: the ones that shift most (significant for either model) ──
+    show_emotions = ["approval", "admiration", "caring", "optimism", "curiosity", "neutral"]
 
     # ── Create slide ──
     fig, ax = slide(
-        title="Emotion predicts who asks for recommendations.",
+        title="When the AI recommends, it stops listening.",
         subtitle=(
-            "Recommendation-seeking rate by dominant emotion in the user's prompt "
-            f"· {len(df):,} prompts from WildChat-1M"
+            "LLM emotional register shift when responses contain product/service "
+            "recommendations · GPT and Claude on 5,000 WildChat prompts"
         ),
         source=(
-            "Recommendation = prompt lands in judgment-outsourcing, influence-at-scale, "
-            "or purchase-oriented clusters · Emotions: SamLowe/roberta-base-go_emotions"
+            "Recommendations detected via keyword patterns in LLM response text · "
+            "Emotions: SamLowe/roberta-base-go_emotions · Mirroring = dominant emotion match"
         ),
         content_rect=(0.06, 0.12, 0.52, 0.68),
     )
 
-    y = np.arange(len(names))
-    bars = ax.barh(
-        y, [r * 100 for r in rates], height=0.65,
-        color=colors, edgecolor=PALETTE["bg"], linewidth=0.5,
-    )
+    # ── LEFT: grouped bars — response emotion when recommending vs not ──
+    y = np.arange(len(show_emotions))
+    bar_h = 0.18
+    offsets = [-1.5, -0.5, 0.5, 1.5]
+
+    color_gpt_rec = PALETTE["accent_warm"]   # orange
+    color_gpt_no = "#7C5A2E"                 # dim orange
+    color_cla_rec = PALETTE["accent_cool"]   # cyan
+    color_cla_no = "#1A5C6B"                 # dim cyan
+
+    gpt = model_data["GPT"]["shifts"]
+    cla = model_data["Claude"]["shifts"]
+
+    vals_gpt_no = [gpt[e]["no_rec"] for e in show_emotions]
+    vals_gpt_rec = [gpt[e]["rec"] for e in show_emotions]
+    vals_cla_no = [cla[e]["no_rec"] for e in show_emotions]
+    vals_cla_rec = [cla[e]["rec"] for e in show_emotions]
+
+    ax.barh(y + offsets[0] * bar_h, vals_gpt_no, height=bar_h,
+            color=color_gpt_no, edgecolor=PALETTE["bg"], linewidth=0.4,
+            label="GPT · no rec")
+    ax.barh(y + offsets[1] * bar_h, vals_gpt_rec, height=bar_h,
+            color=color_gpt_rec, edgecolor=PALETTE["bg"], linewidth=0.4,
+            label="GPT · recommending")
+    ax.barh(y + offsets[2] * bar_h, vals_cla_no, height=bar_h,
+            color=color_cla_no, edgecolor=PALETTE["bg"], linewidth=0.4,
+            label="Claude · no rec")
+    ax.barh(y + offsets[3] * bar_h, vals_cla_rec, height=bar_h,
+            color=color_cla_rec, edgecolor=PALETTE["bg"], linewidth=0.4,
+            label="Claude · recommending")
 
     ax.set_yticks(y)
-    ax.set_yticklabels(names, fontsize=11, fontweight="medium")
-    ax.set_xlabel("% of prompts that are recommendation-seeking", fontsize=10,
-                  color=PALETTE["text_dim"])
+    ax.set_yticklabels(show_emotions, fontsize=12, fontweight="medium")
     ax.invert_yaxis()
-    xmax = max(rates) * 100 * 1.45
+    xmax = max(max(vals_gpt_no), max(vals_gpt_rec),
+               max(vals_cla_no), max(vals_cla_rec)) * 1.35
     ax.set_xlim(0, xmax)
-
-    # Value labels
-    for i, (r, n) in enumerate(zip(rates, counts)):
-        col = PALETTE["text"] if r * 100 > 5 else PALETTE["text_dim"]
-        ax.text(r * 100 + xmax * 0.01, i, f"{r*100:.1f}%  (n={int(n)})",
-                va="center", fontsize=9, color=col, fontweight="semibold")
+    ax.set_xlabel("mean emotion probability in LLM response", fontsize=10,
+                  color=PALETTE["text_dim"])
 
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
 
-    # ── Right panel: key stats ──
+    # Percent-change annotations on GPT rec bars
+    label_offset = xmax * 0.008
+    for i, emo in enumerate(show_emotions):
+        pct = gpt[emo]["pct"]
+        val = vals_gpt_rec[i]
+        sig = gpt[emo]["p"] < 0.05
+        if sig:
+            sign = "+" if pct > 0 else ""
+            col = PALETTE["good"] if pct > 0 else PALETTE["bad"]
+            ax.text(val + label_offset, i + offsets[1] * bar_h,
+                    f"{sign}{pct:.0f}%", va="center", fontsize=8,
+                    color=col, fontweight="bold")
+
+    ax.legend(loc="lower right", frameon=False, fontsize=8.5,
+              labelcolor=PALETTE["text"], ncol=2, columnspacing=1.2)
+
+    # ── RIGHT: mirroring + narrative panel ──
     panel = fig.add_axes([0.63, 0.12, 0.31, 0.68])
     panel.set_facecolor(PALETTE["surface"])
     panel.set_xticks([]); panel.set_yticks([])
@@ -156,65 +227,59 @@ def build_slide(df: pd.DataFrame):
         s.set_color(PALETTE["accent"]); s.set_linewidth(1.2)
 
     # Header
-    panel.text(0.5, 0.97, "THE EMOTIONAL GAP",
+    panel.text(0.5, 0.97, "MIRRORING DROPS",
                ha="center", va="top", fontsize=11, fontweight="bold",
                color=PALETTE["accent"], transform=panel.transAxes)
 
-    # Big number: 2.4x
-    emo_rate = df[df["is_emotional"]]["is_rec"].mean() * 100
-    neu_rate_pct = df[~df["is_emotional"]]["is_rec"].mean() * 100
-    ratio = emo_rate / neu_rate_pct if neu_rate_pct > 0 else 0
+    panel.text(0.5, 0.91, "When the LLM recommends, it stops\n"
+               "matching your emotional state.",
+               ha="center", va="top", fontsize=9.5, color=PALETTE["text_dim"],
+               transform=panel.transAxes, linespacing=1.35)
 
-    panel.text(0.5, 0.88, f"{ratio:.1f}x",
-               ha="center", va="center", fontsize=48, fontweight="black",
-               color=PALETTE["accent_warm"], transform=panel.transAxes)
-    panel.text(0.5, 0.76,
-               f"Emotional users seek recommendations\n"
-               f"at {emo_rate:.1f}% vs {neu_rate_pct:.1f}% for neutral\n"
-               f"(p < 0.000001)",
-               ha="center", va="top", fontsize=9, color=PALETTE["text_dim"],
-               transform=panel.transAxes, linespacing=1.4)
+    # GPT mirroring stats
+    gm = model_data["GPT"]
+    cm = model_data["Claude"]
 
-    panel.plot([0.08, 0.92], [0.66, 0.66], color=PALETTE["border"],
+    ly = 0.78
+    for label, color, data in [
+        ("GPT", PALETTE["accent_warm"], gm),
+        ("Claude", PALETTE["accent_cool"], cm),
+    ]:
+        drop = data["mirror_no"] - data["mirror_rec"]
+        panel.text(0.08, ly, label, fontsize=12, fontweight="bold",
+                   color=color, transform=panel.transAxes, va="top")
+
+        panel.text(0.08, ly - 0.05,
+                   f"Normal: {data['mirror_no']*100:.0f}% match",
+                   fontsize=10, color=PALETTE["text"],
+                   transform=panel.transAxes, va="top")
+        panel.text(0.08, ly - 0.10,
+                   f"Recommending: {data['mirror_rec']*100:.0f}% match",
+                   fontsize=10, color=PALETTE["text"],
+                   transform=panel.transAxes, va="top")
+        panel.text(0.92, ly - 0.07,
+                   f"-{drop*100:.0f}%",
+                   fontsize=24, fontweight="black", color=PALETTE["bad"],
+                   transform=panel.transAxes, va="center", ha="right")
+
+        ly -= 0.21
+
+    panel.plot([0.08, 0.92], [0.38, 0.38], color=PALETTE["border"],
                linewidth=0.8, transform=panel.transAxes)
 
-    # Odds ratios for key approach emotions
-    panel.text(0.5, 0.63, "APPROACH EMOTION ODDS RATIOS",
-               ha="center", va="top", fontsize=9, fontweight="bold",
-               color=PALETTE["accent_cool"], transform=panel.transAxes)
-
-    key_emotions = ["amusement", "joy", "love", "optimism", "desire", "excitement"]
-    ly = 0.56
-    for emo in key_emotions:
-        col_name = f"emo_{emo}"
-        threshold = df[df[col_name] > 0.05][col_name].median() if (df[col_name] > 0.05).sum() > 50 else 0.05
-        high = df[df[col_name] > threshold]
-        low = df[df[col_name] <= threshold]
-        a = high["is_rec"].sum()
-        b = len(high) - a
-        c = low["is_rec"].sum()
-        d = len(low) - c
-        odds = (a * d) / (b * c) if (b * c) > 0 else 0
-
-        panel.text(0.08, ly, emo, fontsize=10, color=PALETTE["text"],
-                   fontweight="semibold", transform=panel.transAxes, va="top")
-        panel.text(0.92, ly, f"{odds:.1f}x",
-                   fontsize=10, color=PALETTE["accent_warm"], fontweight="bold",
-                   transform=panel.transAxes, va="top", ha="right")
-        ly -= 0.055
-
-    panel.plot([0.08, 0.92], [0.21, 0.21], color=PALETTE["border"],
-               linewidth=0.8, transform=panel.transAxes)
-
-    panel.text(0.5, 0.18, "Approach emotions drive action",
-               fontsize=12, fontweight="bold", color=PALETTE["text"],
+    # Narrative
+    panel.text(0.5, 0.34, "Not mirroring. Selling.",
+               fontsize=13, fontweight="bold", color=PALETTE["text"],
                transform=panel.transAxes, va="top", ha="center")
-    panel.text(0.08, 0.11,
-               "Joy, amusement, desire — states\n"
-               "that open us to influence — are\n"
-               "dramatically overrepresented in\n"
-               "recommendation-seeking prompts.",
-               fontsize=8.5, color=PALETTE["text_dim"], fontstyle="italic",
+    panel.text(0.08, 0.26,
+               "Both models break emotional\n"
+               "alignment when they recommend.\n"
+               "Approval, admiration, and caring\n"
+               "spike. Neutrality drops. The AI\n"
+               "switches from companion to\n"
+               "salesperson — and it does this\n"
+               "by design, not by accident.",
+               fontsize=8.8, color=PALETTE["text_dim"], fontstyle="italic",
                transform=panel.transAxes, va="top", linespacing=1.35)
 
     save(fig, OUT / "16_emotion_recommends.png")

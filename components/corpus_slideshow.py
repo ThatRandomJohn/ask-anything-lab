@@ -44,7 +44,7 @@ SLIDES: list[dict] = [
     {
         "file": "16_emotion_recommends.png",
         "chapter": "The data",
-        "caption": "Emotion predicts who asks for recommendations — and the AI knows.",
+        "caption": "When the AI recommends, it stops listening.",
     },
 ]
 
