@@ -150,13 +150,11 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
       <div class="aal-brain-canvas-card aal-influence-card-entrance">
         <div class="aal-brain-canvas-wrap">
           <canvas id="aal-brain-canvas"></canvas>
-          <!-- Hover tooltip -->
           <div id="aal-brain-tooltip" class="aal-brain-tooltip"></div>
-          <!-- Callout labels (positioned by JS) -->
-          <div id="aal-brain-callouts" class="aal-brain-callouts"></div>
+          <div id="aal-brain-focus-panel" class="aal-brain-focus-panel"></div>
         </div>
         <div class="aal-brain-controls-hint">
-          Drag to rotate &middot; Scroll to zoom &middot; Hover to explore regions
+          Click a region to focus &middot; Drag to rotate &middot; Scroll to zoom
         </div>
         <div class="aal-brain-legend">
           <span class="aal-brain-legend-label">Low</span>
@@ -304,8 +302,13 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
   width: 100%; height: 520px;
   display: block; background: #030712;
   cursor: grab;
+  animation: aal-brain-fadein 0.5s ease-out;
 }}
 #aal-brain-canvas:active {{ cursor: grabbing; }}
+@keyframes aal-brain-fadein {{
+  0% {{ opacity: 0; }}
+  100% {{ opacity: 1; }}
+}}
 
 /* ── HOVER TOOLTIP ── */
 .aal-brain-tooltip {{
@@ -332,34 +335,40 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
   font-variant-numeric: tabular-nums;
 }}
 
-/* ── FLOATING CALLOUT LABELS ── */
-.aal-brain-callouts {{
-  position: absolute; inset: 0;
-  pointer-events: none; z-index: 10;
+/* ── FOCUS PANEL ── */
+.aal-brain-focus-panel {{
+  display: none;
+  position: absolute; bottom: 16px; left: 16px; right: 16px;
+  z-index: 20;
+  background: rgba(15,23,42,0.92);
+  border: 1px solid rgba(167,139,250,0.30);
+  border-radius: 14px; padding: 1.1em 1.4em;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  animation: aal-brain-fadein 0.3s ease-out;
 }}
-.aal-brain-callout {{
-  position: absolute;
-  display: flex; align-items: center; gap: 0.5em;
-  font-size: 1em; font-weight: 800;
-  color: #FFFFFF;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.6);
-  opacity: 0;
-  animation: aal-callout-in 0.6s ease-out forwards;
-  transition: opacity 0.3s;
-  white-space: nowrap;
-  pointer-events: none;
+.aal-focus-name {{
+  font-size: 1.3em; font-weight: 900;
+  margin-bottom: 0.15em;
 }}
-.aal-brain-callout-dot {{
-  width: 10px; height: 10px;
-  border-radius: 50%; flex-shrink: 0;
+.aal-focus-score {{
+  font-size: 1.1em; font-weight: 800;
+  margin-bottom: 0.3em;
 }}
-.aal-brain-callout-line {{
-  width: 28px; height: 2px;
-  flex-shrink: 0; border-radius: 1px;
+.aal-focus-desc {{
+  color: #E2E8F0; font-size: 1em;
+  margin-bottom: 0.6em;
 }}
-@keyframes aal-callout-in {{
-  0% {{ opacity: 0; transform: translateY(6px); }}
-  100% {{ opacity: 1; transform: translateY(0); }}
+.aal-focus-back {{
+  background: rgba(167,139,250,0.15);
+  border: 1px solid rgba(167,139,250,0.3);
+  border-radius: 8px; padding: 0.4em 1em;
+  color: #C4B5FD; font-size: 0.9em;
+  font-weight: 700; cursor: pointer;
+  transition: background 0.2s;
+}}
+.aal-focus-back:hover {{
+  background: rgba(167,139,250,0.25);
 }}
 
 /* ── CONTROLS & LEGEND ── */

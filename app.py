@@ -39,8 +39,8 @@ from components.speaker import SPEAKER_HTML
 from components.study import SURPRISING_OPTIONS, study_intro_html, thanks_html
 from components import corpus_slideshow
 from components.brain_viz import render_brain_stage
-from data.brain_data import FALLBACK_BRAIN_DATA
-from services.claude_api import get_influence_analysis, process_prompt_parallel
+from data.brain_data import FALLBACK_BRAIN_DATA, generate_activation_from_response, generate_narrative
+from services.claude_api import get_influence_analysis, get_response, process_prompt_parallel
 from services.supabase_client import fetch_aggregate_stats, save_influence, save_study
 
 
@@ -385,41 +385,46 @@ def handle_audience_continue(audience_stage, prompt, embeddings, sources, respon
     1=embed → 2=retrieve → 3=synthesize → 4=brain → 5=influence → 6=study → 7=compare → 8=thanks
     """
     # Returns: (audience_viz_group, study_group, thanks_group,
-    #           audience_display, audience_stage, influence_state)
+    #           audience_display, audience_stage, influence_state,
+    #           brain_prompt_row, brain_prompt_result)
     print(f"[audience] continue: stage={audience_stage!r}", flush=True)
     _no = gr.update()
+    _hide_playground = gr.update(visible=False)
+    _hide_result = gr.update(visible=False)
 
     if audience_stage == 1:
         srcs = (sources or {}).get("sources") if isinstance(sources, dict) else None
         return (
             gr.update(visible=True), _no, _no,
             render_sources(srcs, embeddings=embeddings, label="Step 3 \u00b7 Retrieve"),
-            2, influence_data,
+            2, influence_data, _hide_playground, _hide_result,
         )
 
     if audience_stage == 2:
         return (
             gr.update(visible=True), _no, _no,
             typewriter_html(response or "(no response)"),
-            3, influence_data,
+            3, influence_data, _hide_playground, _hide_result,
         )
 
     if audience_stage == 3:
-        # Brain visualization stage
+        # Brain visualization stage — show the playground input
         bd = brain_data if brain_data else FALLBACK_BRAIN_DATA
         return (
             gr.update(visible=True), _no, _no,
             render_brain_stage(bd, response or ""),
             4, influence_data,
+            gr.update(visible=True),  # show brain playground
+            _hide_result,
         )
 
     if audience_stage == 4:
-        # Influence analysis
+        # Influence analysis — hide playground
         inf = get_influence_analysis(prompt, response or "")
         return (
             gr.update(visible=True), _no, _no,
             render_influence_analysis(response or "", inf),
-            5, inf,
+            5, inf, _hide_playground, _hide_result,
         )
 
     if audience_stage == 5:
@@ -429,7 +434,7 @@ def handle_audience_continue(audience_stage, prompt, embeddings, sources, respon
             gr.update(visible=False, elem_classes=["aal-force-hide"]),
             gr.update(visible=True, elem_classes=["aal-force-show"]),
             _no,
-            _no, 6, influence_data,
+            _no, 6, influence_data, _hide_playground, _hide_result,
         )
 
     if audience_stage == 7:
@@ -438,10 +443,10 @@ def handle_audience_continue(audience_stage, prompt, embeddings, sources, respon
             gr.update(visible=False, elem_classes=["aal-force-hide"]),
             _no,
             gr.update(visible=True, elem_classes=["aal-force-show"]),
-            _no, 8, influence_data,
+            _no, 8, influence_data, _hide_playground, _hide_result,
         )
 
-    return _no, _no, _no, _no, audience_stage, influence_data
+    return _no, _no, _no, _no, audience_stage, influence_data, _no, _no
 
 
 def handle_study_submit(session_id, prompt, q1, q2, q3):
@@ -462,6 +467,24 @@ def handle_study_submit(session_id, prompt, q1, q2, q3):
         7,                                                            # audience_stage
         gr.update(value="", visible=False),                          # study_err
     )
+
+
+def handle_brain_playground(prompt, brain_data):
+    """User typed a new prompt in the brain playground. Get Claude response, generate new activation."""
+    if not prompt or not prompt.strip():
+        return gr.update(), gr.update(), brain_data
+    response = get_response(prompt.strip())
+    new_brain = generate_activation_from_response(response)
+    narrative = generate_narrative(new_brain["roi_scores"])
+    brain_html = render_brain_stage(new_brain, response)
+    result_html = f"""
+    <div style="background:rgba(15,23,42,0.7); border:1px solid rgba(167,139,250,0.2);
+         border-radius:14px; padding:1em 1.4em; margin-top:0.8em;
+         backdrop-filter:blur(12px); animation: aalCardSlideIn 0.5s ease-out;">
+      <div style="color:#F1F5F9; font-size:1.1em; line-height:1.6;">{narrative}</div>
+    </div>
+    """
+    return brain_html, gr.update(value=result_html, visible=True), new_brain
 
 
 # ============================================================
@@ -594,6 +617,19 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
     # -- audience viz group (embed/retrieve/synthesize display) --
     with gr.Column(visible=False, elem_id="audience_viz_view") as audience_viz_group:
         audience_display = gr.HTML(value="")
+        # Brain playground — only visible during brain stage (stage 4)
+        with gr.Row(visible=False, elem_id="brain_prompt_row") as brain_prompt_row:
+            with gr.Column(scale=1): pass
+            with gr.Column(scale=3):
+                brain_prompt_box = gr.Textbox(
+                    placeholder="Try another prompt — see how your brain reacts\u2026",
+                    label="",
+                    lines=1,
+                    show_label=False,
+                )
+                brain_submit_btn = gr.Button("See brain reaction \u2192", variant="secondary")
+                brain_prompt_result = gr.HTML(value="", visible=False)
+            with gr.Column(scale=1): pass
         with gr.Row():
             with gr.Column(scale=1): pass
             with gr.Column(scale=2):
@@ -774,7 +810,15 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
         inputs=[audience_stage, prompt_state, embeddings_state, sources_state,
                 response_state, influence_state, brain_state, session_id_state],
         outputs=[audience_viz_group, study_group, thanks_group,
-                 audience_display, audience_stage, influence_state],
+                 audience_display, audience_stage, influence_state,
+                 brain_prompt_row, brain_prompt_result],
+    )
+
+    brain_submit_btn.click(
+        handle_brain_playground,
+        inputs=[brain_prompt_box, brain_state],
+        outputs=[audience_display, brain_prompt_result, brain_state],
+        show_progress="minimal",
     )
 
     study_submit_btn.click(
