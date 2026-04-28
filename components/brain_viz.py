@@ -390,19 +390,21 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
 <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
      onload="
 (function() {{
-  if (window._aalBrainInit) return;
-  window._aalBrainInit = true;
+  /* Reset guard so re-renders work (Gradio replaces HTML each stage) */
+  if (document.getElementById('aal-brain-canvas') && window._aalBrainDone) return;
+  window._aalBrainDone = true;
 
-  /* Load Three.js global build + OrbitControls via script tags */
   function loadScript(src) {{
     return new Promise(function(resolve, reject) {{
       var s = document.createElement('script');
-      s.src = src; s.onload = resolve; s.onerror = reject;
+      s.src = src; s.crossOrigin = 'anonymous';
+      s.onload = resolve; s.onerror = reject;
       document.head.appendChild(s);
     }});
   }}
 
-  var base = 'https://cdn.jsdelivr.net/npm/three@0.170.0';
+  /* Three.js r137 — last version with global examples/js/ OrbitControls */
+  var base = 'https://unpkg.com/three@0.137.0';
   var p = window.THREE
     ? Promise.resolve()
     : loadScript(base + '/build/three.min.js');
@@ -457,8 +459,10 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x030712, 1);
-    renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    if (T.ACESFilmicToneMapping) {{
+      renderer.toneMapping = T.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+    }}
 
     var scene = new T.Scene();
     var camera = new T.PerspectiveCamera(32, width / height, 1, 500);
@@ -512,10 +516,9 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
       geo.setAttribute('color', new T.BufferAttribute(cols, 3));
       geo.computeVertexNormals();
 
-      var mat = new T.MeshPhysicalMaterial({{
-        vertexColors: true, roughness: 0.38, metalness: 0.12,
-        clearcoat: 0.3, clearcoatRoughness: 0.4,
-        side: T.DoubleSide, envMapIntensity: 0.5,
+      var mat = new T.MeshStandardMaterial({{
+        vertexColors: true, roughness: 0.4, metalness: 0.15,
+        side: T.DoubleSide,
       }});
       var brain = new T.Mesh(geo, mat);
       brain.rotation.x = -Math.PI * 0.08;
