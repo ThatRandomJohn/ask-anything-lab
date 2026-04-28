@@ -152,12 +152,20 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
           <div id="aal-brain-focus-panel" class="aal-brain-focus-panel"></div>
         </div>
         <div style="text-align:center;color:#FFFFFF;font-size:1em;margin-top:0.8em;font-weight:600;">
-          Click a region to focus &middot; Drag to rotate &middot; Scroll to zoom
+          Click a region to focus &middot; Drag to rotate &middot; Views snap at key angles
         </div>
-        <div style="display:flex;align-items:center;justify-content:center;gap:0.8em;margin-top:0.6em;">
-          <span style="color:#FFFFFF;font-size:0.95em;text-transform:uppercase;letter-spacing:0.12em;font-weight:800;">Low</span>
-          <div style="width:180px;height:10px;border-radius:5px;background:linear-gradient(90deg,#1E293B,#06B6D4,#A78BFA,#FB7185);box-shadow:0 0 12px rgba(167,139,250,0.3);"></div>
-          <span style="color:#FFFFFF;font-size:0.95em;text-transform:uppercase;letter-spacing:0.12em;font-weight:800;">High</span>
+        <div style="display:flex;align-items:center;justify-content:center;gap:1em;margin-top:0.6em;">
+          <div style="display:flex;align-items:center;gap:0.5em;">
+            <span style="color:#FFFFFF;font-size:0.82em;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">Low</span>
+            <div style="width:120px;height:8px;border-radius:4px;background:linear-gradient(90deg,#1E293B,#06B6D4,#A78BFA,#FB7185);"></div>
+            <span style="color:#FFFFFF;font-size:0.82em;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">High</span>
+          </div>
+          <div style="width:1px;height:16px;background:rgba(255,255,255,0.2);"></div>
+          <div style="display:flex;align-items:center;gap:0.5em;">
+            <span style="color:#FFFFFF;font-size:0.82em;font-weight:700;">Zoom</span>
+            <input type="range" id="aal-brain-zoom" min="120" max="280" value="185"
+                   style="width:100px;accent-color:#A78BFA;cursor:pointer;" />
+          </div>
         </div>
       </div>
 

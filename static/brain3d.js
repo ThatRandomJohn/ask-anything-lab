@@ -103,12 +103,46 @@
 
     var controls = new T.OrbitControls(camera, canvas);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
+    controls.dampingFactor = 0.08;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.4;
-    controls.minDistance = 140;
-    controls.maxDistance = 250;
+    controls.autoRotateSpeed = 0.3;
+    controls.enableZoom = false; /* zoom via slider only */
     controls.enablePan = false;
+    controls.rotateSpeed = 0.8;
+
+    var ZOOM_MIN = 120, ZOOM_MAX = 280, ZOOM_DEFAULT = 185;
+    var currentZoom = ZOOM_DEFAULT;
+
+    /* Stop auto-rotate on first user interaction */
+    canvas.addEventListener("pointerdown", function() {
+      controls.autoRotate = false;
+    });
+
+    /* ── Snap angles: front, left, right, top, bottom ── */
+    var SNAP_ANGLES = [
+      { azimuth: 0,              polar: Math.PI/2 },  /* front */
+      { azimuth: Math.PI/2,      polar: Math.PI/2 },  /* left */
+      { azimuth: -Math.PI/2,     polar: Math.PI/2 },  /* right */
+      { azimuth: Math.PI,        polar: Math.PI/2 },  /* back */
+      { azimuth: 0,              polar: 0.15 },        /* top */
+      { azimuth: 0,              polar: Math.PI-0.15 } /* bottom */
+    ];
+    var SNAP_THRESHOLD = 0.12; /* radians — how close before it snaps */
+    var snapActive = false;
+
+    /* Zoom slider */
+    var zoomSlider = document.getElementById("aal-brain-zoom");
+    if (zoomSlider) {
+      zoomSlider.value = ZOOM_DEFAULT;
+      zoomSlider.min = ZOOM_MIN;
+      zoomSlider.max = ZOOM_MAX;
+      zoomSlider.addEventListener("input", function() {
+        currentZoom = parseFloat(zoomSlider.value);
+        var dir = camera.position.clone().sub(controls.target).normalize();
+        camera.position.copy(controls.target).addScaledVector(dir, currentZoom);
+        controls.autoRotate = false;
+      });
+    }
 
     /* Bright lighting */
     scene.add(new T.AmbientLight(0x6680AA, 1.5));
@@ -383,9 +417,43 @@
           isAnimatingFocus = false;
           if (focusedROI < 0) controls.autoRotate = true;
         }
-        controls.update();
-      } else {
-        controls.update();
+      }
+
+      controls.update();
+
+      /* Snap to canonical views when close */
+      if (!controls.autoRotate && !isAnimatingFocus && focusedROI < 0) {
+        var offset = camera.position.clone().sub(controls.target);
+        var dist = offset.length();
+        var azimuth = Math.atan2(offset.x, offset.z);
+        var polar = Math.acos(Math.max(-1, Math.min(1, offset.y / dist)));
+
+        for (var si = 0; si < SNAP_ANGLES.length; si++) {
+          var sa = SNAP_ANGLES[si];
+          var dA = Math.abs(azimuth - sa.azimuth);
+          if (dA > Math.PI) dA = 2 * Math.PI - dA;
+          var dP = Math.abs(polar - sa.polar);
+          if (dA < SNAP_THRESHOLD && dP < SNAP_THRESHOLD) {
+            /* Gently pull toward snap angle */
+            var tgtAz = azimuth + (sa.azimuth - azimuth) * 0.08;
+            var tgtPo = polar + (sa.polar - polar) * 0.08;
+            var nx = dist * Math.sin(tgtPo) * Math.sin(tgtAz);
+            var ny = dist * Math.cos(tgtPo);
+            var nz = dist * Math.sin(tgtPo) * Math.cos(tgtAz);
+            camera.position.set(
+              controls.target.x + nx,
+              controls.target.y + ny,
+              controls.target.z + nz
+            );
+            break;
+          }
+        }
+      }
+
+      /* Keep zoom distance in sync with slider */
+      var curDist = camera.position.clone().sub(controls.target).length();
+      if (zoomSlider && Math.abs(curDist - parseFloat(zoomSlider.value)) > 2) {
+        zoomSlider.value = Math.round(curDist);
       }
 
       renderer.render(scene, camera);
