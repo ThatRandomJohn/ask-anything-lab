@@ -121,7 +121,7 @@ def render_influence_analysis(response: str, influence_data: dict) -> str:
     <div class="aal-influence-topbar">
       <div class="aal-influence-eyebrow-pill">
         <span class="aal-eyebrow-dot" style="background:#FB7185; box-shadow: 0 0 12px #FB7185;"></span>
-        Step 5 &middot; Influence Analysis
+        Step 6 &middot; Influence Analysis
       </div>
     </div>
     <h2 class="aal-influence-title">Here&rsquo;s what the AI used to earn your trust.</h2>

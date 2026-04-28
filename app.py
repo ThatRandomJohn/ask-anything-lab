@@ -38,6 +38,8 @@ from components.influence import render_influence_analysis
 from components.speaker import SPEAKER_HTML
 from components.study import SURPRISING_OPTIONS, study_intro_html, thanks_html
 from components import corpus_slideshow
+from components.brain_viz import render_brain_stage
+from data.brain_data import FALLBACK_BRAIN_DATA
 from services.claude_api import get_influence_analysis, process_prompt_parallel
 from services.supabase_client import fetch_aggregate_stats, save_influence, save_study
 
@@ -339,6 +341,7 @@ def handle_audience_submit(prompt):
             "",                    # prompt_state
             {}, {}, "",            # embeddings/sources/response
             {},                    # influence_state
+            {},                    # brain_state
             "",                    # session_id
             gr.update(value="**Please enter a prompt first.**", visible=True),
         )
@@ -355,6 +358,7 @@ def handle_audience_submit(prompt):
         prompt,
         {}, {}, "",
         {},
+        {},
         session_id,
         gr.update(value="", visible=False),
     )
@@ -369,15 +373,16 @@ def handle_audience_submit(prompt):
         prompt,
         embeddings, sources, response,
         {},
+        FALLBACK_BRAIN_DATA,
         session_id,
         gr.update(value="", visible=False),
     )
 
 
 def handle_audience_continue(audience_stage, prompt, embeddings, sources, response,
-                             influence_data, session_id):
+                             influence_data, brain_data, session_id):
     """Advance through audience stages:
-    1=embed → 2=retrieve → 3=synthesize → 4=influence → 5=study → 6=compare → 7=thanks
+    1=embed → 2=retrieve → 3=synthesize → 4=brain → 5=influence → 6=study → 7=compare → 8=thanks
     """
     # Returns: (audience_viz_group, study_group, thanks_group,
     #           audience_display, audience_stage, influence_state)
@@ -400,30 +405,40 @@ def handle_audience_continue(audience_stage, prompt, embeddings, sources, respon
         )
 
     if audience_stage == 3:
+        # Brain visualization stage
+        bd = brain_data if brain_data else FALLBACK_BRAIN_DATA
+        return (
+            gr.update(visible=True), _no, _no,
+            render_brain_stage(bd, response or ""),
+            4, influence_data,
+        )
+
+    if audience_stage == 4:
+        # Influence analysis
         inf = get_influence_analysis(prompt, response or "")
         return (
             gr.update(visible=True), _no, _no,
             render_influence_analysis(response or "", inf),
-            4, inf,
+            5, inf,
         )
 
-    if audience_stage == 4:
+    if audience_stage == 5:
         # Influence done → transition to study questions
         save_influence(session_id, influence_data)
         return (
             gr.update(visible=False, elem_classes=["aal-force-hide"]),
             gr.update(visible=True, elem_classes=["aal-force-show"]),
             _no,
-            _no, 5, influence_data,
+            _no, 6, influence_data,
         )
 
-    if audience_stage == 6:
+    if audience_stage == 7:
         # Compare done → transition to thanks
         return (
             gr.update(visible=False, elem_classes=["aal-force-hide"]),
             _no,
             gr.update(visible=True, elem_classes=["aal-force-show"]),
-            _no, 7, influence_data,
+            _no, 8, influence_data,
         )
 
     return _no, _no, _no, _no, audience_stage, influence_data
@@ -435,7 +450,7 @@ def handle_study_submit(session_id, prompt, q1, q2, q3):
             gr.update(),                 # study_group
             gr.update(),                 # audience_viz_group
             gr.update(),                 # audience_display
-            6,                           # audience_stage
+            7,                           # audience_stage
             gr.update(value="**Please answer question 1 before submitting.**", visible=True),
         )
     save_study(session_id, prompt, q1, q2, q3)
@@ -444,7 +459,7 @@ def handle_study_submit(session_id, prompt, q1, q2, q3):
         gr.update(visible=False, elem_classes=["aal-force-hide"]),   # hide study
         gr.update(visible=True, elem_classes=["aal-force-show"]),    # show viz with compare
         render_audience_compare(stats),                               # audience_display
-        6,                                                            # audience_stage
+        7,                                                            # audience_stage
         gr.update(value="", visible=False),                          # study_err
     )
 
@@ -503,6 +518,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
     sources_state = gr.State({})
     response_state = gr.State("")
     influence_state = gr.State({})
+    brain_state = gr.State({})
     session_id_state = gr.State("")
     corpus_idx = gr.State(0)
 
@@ -747,7 +763,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
             audience_input_group, audience_viz_group, audience_display,
             audience_stage, prompt_state,
             embeddings_state, sources_state, response_state,
-            influence_state,
+            influence_state, brain_state,
             session_id_state, prompt_err,
         ],
         show_progress="hidden",
@@ -756,7 +772,7 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
     continue_btn.click(
         handle_audience_continue,
         inputs=[audience_stage, prompt_state, embeddings_state, sources_state,
-                response_state, influence_state, session_id_state],
+                response_state, influence_state, brain_state, session_id_state],
         outputs=[audience_viz_group, study_group, thanks_group,
                  audience_display, audience_stage, influence_state],
     )
