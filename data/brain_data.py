@@ -233,6 +233,33 @@ def generate_activation_from_response(response_text: str) -> dict:
     }
 
 
+def map_response_words(response_text: str) -> list:
+    """Map each word in the response to the ROI(s) it triggers.
+
+    Returns a list of {word, rois: [roi_key, ...]} for every word.
+    Words that don't match any keyword get rois: [].
+    """
+    import re
+    words = re.findall(r"[\w'']+|[^\w\s]", response_text)
+    result = []
+    text_lower = response_text.lower()
+    for word in words:
+        wl = word.lower().strip("''\".,!?;:")
+        matched_rois = []
+        for roi_key, keywords in _EMOTION_KEYWORDS.items():
+            for kw in keywords:
+                if " " in kw:
+                    # Multi-word keyword — check if this word starts it
+                    if kw in text_lower and wl == kw.split()[0]:
+                        matched_rois.append(roi_key)
+                        break
+                elif wl == kw:
+                    matched_rois.append(roi_key)
+                    break
+        result.append({"word": word, "rois": matched_rois})
+    return result
+
+
 def generate_narrative(roi_scores: dict) -> str:
     """Generate a one-line narrative describing which brain regions are most active."""
     sorted_rois = sorted(roi_scores.items(), key=lambda kv: kv[1], reverse=True)

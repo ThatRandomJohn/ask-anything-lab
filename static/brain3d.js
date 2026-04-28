@@ -161,6 +161,19 @@
     var roiSprites = [];
     var clock = new T.Clock();
 
+    /* Word map for streaming */
+    var wordMapEl = document.getElementById("aal-brain-word-map");
+    var WORD_MAP = wordMapEl ? JSON.parse(wordMapEl.textContent) : [];
+    var wordsPanel = document.getElementById("aal-brain-words-panel");
+    var wordsStream = document.getElementById("aal-words-stream");
+    var wordsRoiDot = document.getElementById("aal-words-roi-dot");
+    var wordsRoiName = document.getElementById("aal-words-roi-name");
+    var wordsRoiDesc = document.getElementById("aal-words-roi-desc");
+    var activeWordStream = null; /* timer handle */
+    var activeStreamROI = -1;
+    var brainPulseROI = -1;
+    var brainPulseTime = 0;
+
     /* Focus state */
     var focusedROI = -1;
     var focusTarget = null;
@@ -236,7 +249,11 @@
         row.addEventListener("click", function() {
           var key = row.getAttribute("data-roi");
           for (var ri = 0; ri < ROIS.length; ri++) {
-            if (ROIS[ri].key === key) { focusOnROI(ri); break; }
+            if (ROIS[ri].key === key) {
+              focusOnROI(ri);
+              streamWordsForROI(ri);
+              break;
+            }
           }
         });
         row.addEventListener("mouseenter", function() {
@@ -314,6 +331,12 @@
       }
       document.querySelectorAll(".aal-brain-roi-row").forEach(function(r) { r.classList.remove("aal-roi-active"); });
       if (focusPanel) focusPanel.style.display = "none";
+
+      /* Stop word stream and hide panel */
+      if (activeWordStream) { clearInterval(activeWordStream); activeWordStream = null; }
+      if (wordsPanel) wordsPanel.style.display = "none";
+      brainPulseROI = -1;
+      activeStreamROI = -1;
     };
 
     /* ── Click to focus ── */
@@ -339,7 +362,7 @@
         if (vertexROI[a] >= 0) roiIdx = vertexROI[a];
         else if (vertexROI[b] >= 0) roiIdx = vertexROI[b];
         else if (vertexROI[c] >= 0) roiIdx = vertexROI[c];
-        if (roiIdx >= 0) focusOnROI(roiIdx);
+        if (roiIdx >= 0) { focusOnROI(roiIdx); streamWordsForROI(roiIdx); }
         else window._aalBrainUnfocus();
       } else {
         window._aalBrainUnfocus();
@@ -396,6 +419,62 @@
     }
     canvas.addEventListener("mouseleave", hideTooltip);
 
+    /* ── Word streaming for ROI exploration ── */
+    function streamWordsForROI(ri) {
+      if (!wordsPanel || !wordsStream || WORD_MAP.length === 0) return;
+      var roi = ROIS[ri];
+
+      /* Stop any existing stream */
+      if (activeWordStream) { clearInterval(activeWordStream); activeWordStream = null; }
+
+      /* Set up panel header */
+      if (wordsRoiDot) {
+        wordsRoiDot.style.background = roi.color;
+        wordsRoiDot.style.boxShadow = "0 0 12px " + roi.color;
+      }
+      if (wordsRoiName) wordsRoiName.textContent = roi.label;
+      if (wordsRoiDesc) wordsRoiDesc.textContent = roi.desc;
+      wordsPanel.style.display = "block";
+      wordsStream.innerHTML = "";
+      activeStreamROI = ri;
+
+      /* Stream words one by one */
+      var wordIdx = 0;
+      var roiKey = roi.key;
+
+      activeWordStream = setInterval(function() {
+        if (wordIdx >= WORD_MAP.length) {
+          clearInterval(activeWordStream);
+          activeWordStream = null;
+          brainPulseROI = -1;
+          return;
+        }
+
+        var w = WORD_MAP[wordIdx];
+        var isMatch = w.rois && w.rois.indexOf(roiKey) >= 0;
+        var span = document.createElement("span");
+        span.textContent = w.word + " ";
+
+        if (isMatch) {
+          span.style.cssText = "color:" + roi.color + ";font-weight:800;text-shadow:0 0 8px " + roi.color + "66;font-size:1.2em;";
+          /* Pulse the brain region */
+          brainPulseROI = ri;
+          brainPulseTime = clock.getElapsedTime();
+        } else {
+          span.style.cssText = "color:rgba(255,255,255,0.5);";
+        }
+
+        wordsStream.appendChild(span);
+        /* Auto-scroll */
+        wordsStream.scrollTop = wordsStream.scrollHeight;
+
+        wordIdx++;
+      }, 60); /* 60ms per word — fast enough to feel like streaming */
+    }
+
+    /* Hide word panel on unfocus */
+    var origUnfocus = window._aalBrainUnfocus;
+
     /* ── Animation loop ── */
     (function animate() {
       requestAnimationFrame(animate);
@@ -405,6 +484,11 @@
       for (var si = 0; si < roiSprites.length; si++) {
         if (focusedROI >= 0 && si !== focusedROI) continue;
         var baseScale = focusedROI === si ? 14 : 8;
+        /* Extra flash when a trigger word streams in */
+        if (brainPulseROI === si && (elapsed - brainPulseTime) < 0.4) {
+          var flash = 1.0 + 0.6 * Math.max(0, 1.0 - (elapsed - brainPulseTime) / 0.4);
+          baseScale *= flash;
+        }
         var pulse = baseScale * (1.0 + 0.15 * Math.sin(elapsed * 2.0 + si * 1.2));
         roiSprites[si].scale.set(pulse, pulse, 1);
       }

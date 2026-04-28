@@ -13,6 +13,8 @@ from __future__ import annotations
 import json
 import os
 
+from data.brain_data import map_response_words
+
 _HERE = os.path.dirname(__file__)
 _STATIC = os.path.join(os.path.dirname(_HERE), "static")
 
@@ -108,6 +110,10 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
         })
     roi_json = json.dumps(roi_list, separators=(",", ":"))
 
+    # Per-word ROI mapping for the response text
+    word_map = map_response_words(response) if response else []
+    word_map_json = json.dumps(word_map, separators=(",", ":"))
+
     status_banner = ""
     if status in ("demo", "fallback"):
         status_banner = """
@@ -175,16 +181,24 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
           Predicted cortical response to the AI&rsquo;s answer
         </div>
         {roi_html}
-        <div style="margin-top:1.5em;padding-top:1.2em;border-top:1px solid rgba(167,139,250,0.20);
-             color:#FFFFFF;font-size:1.1em;line-height:1.6;">
-          <strong style="display:block;color:#FFFFFF;font-size:1.2em;font-weight:900;margin-bottom:0.3em;">
-            The AI&rsquo;s approval language lights up your reward circuits.
-          </strong>
-          The same regions triggered by social bonding, trust,
-          and belonging. This isn&rsquo;t understanding &mdash;
-          it&rsquo;s persuasion architecture.
+        <div style="margin-top:1em;padding-top:1em;border-top:1px solid rgba(167,139,250,0.20);
+             color:#FFFFFF;font-size:0.95em;">
+          <strong style="color:#FFFFFF;font-weight:700;">Click a region above</strong>
+          to see which words from the AI&rsquo;s response activate it.
         </div>
       </div>
+    </div>
+
+    <!-- Word activation panel — shows when a ROI row is clicked -->
+    <div id="aal-brain-words-panel" style="display:none;margin-top:1.4em;
+         background:rgba(15,23,42,0.92);border:1px solid rgba(167,139,250,0.25);
+         border-radius:18px;padding:1.4em 1.8em;">
+      <div style="display:flex;align-items:center;gap:0.8em;margin-bottom:0.8em;">
+        <span id="aal-words-roi-dot" style="width:12px;height:12px;border-radius:50%;flex-shrink:0;"></span>
+        <span id="aal-words-roi-name" style="color:#FFFFFF;font-size:1.3em;font-weight:900;"></span>
+        <span id="aal-words-roi-desc" style="color:#FFFFFF;font-size:0.95em;font-weight:400;margin-left:auto;"></span>
+      </div>
+      <div id="aal-words-stream" style="color:#FFFFFF;font-size:1.15em;line-height:1.8;min-height:3em;"></div>
     </div>
   </div>
 </div>
@@ -477,6 +491,7 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
 <div id="aal-brain-data" style="display:none;">{act_json}</div>
 <div id="aal-brain-mesh-url" style="display:none;">{mesh_src}</div>
 <div id="aal-brain-roi-data" style="display:none;">{roi_json}</div>
+<div id="aal-brain-word-map" style="display:none;">{word_map_json}</div>
 <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
      onload="var s=document.createElement('script');s.src='/gradio_api/file={js_path}';document.head.appendChild(s);"
 />
