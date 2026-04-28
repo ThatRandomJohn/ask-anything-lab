@@ -393,48 +393,59 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
   if (window._aalBrainInit) return;
   window._aalBrainInit = true;
 
-  var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
-  var ORBIT_URL = 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js';
-
-  var ACTIVATIONS = JSON.parse(document.getElementById('aal-brain-data').textContent);
-  var MESH_URL = document.getElementById('aal-brain-mesh-url').textContent.trim();
-
-  function activationColor(v) {{
-    v = Math.max(0, Math.min(1, v));
-    /* Richer color ramp with more glow at peaks */
-    var stops = [
-      [0.0,  0.071, 0.098, 0.141],  /* #121926 deep dark */
-      [0.15, 0.075, 0.220, 0.310],  /* dark teal hint */
-      [0.35, 0.024, 0.714, 0.831],  /* #06B6D4 cyan */
-      [0.55, 0.455, 0.380, 0.900],  /* blue-purple transition */
-      [0.75, 0.655, 0.545, 0.984],  /* #A78BFA purple */
-      [0.90, 0.925, 0.380, 0.520],  /* #EC6185 hot rose */
-      [1.0,  1.000, 0.700, 0.780],  /* bright rose-white */
-    ];
-    var lo = stops[0], hi = stops[stops.length - 1];
-    for (var i = 0; i < stops.length - 1; i++) {{
-      if (v >= stops[i][0] && v <= stops[i + 1][0]) {{
-        lo = stops[i]; hi = stops[i + 1];
-        break;
-      }}
-    }}
-    var t = (hi[0] - lo[0]) > 0 ? (v - lo[0]) / (hi[0] - lo[0]) : 0;
-    /* Smooth-step for softer transitions */
-    t = t * t * (3 - 2 * t);
-    return [
-      lo[1] + t * (hi[1] - lo[1]),
-      lo[2] + t * (hi[2] - lo[2]),
-      lo[3] + t * (hi[3] - lo[3]),
-    ];
+  /* Load Three.js global build + OrbitControls via script tags */
+  function loadScript(src) {{
+    return new Promise(function(resolve, reject) {{
+      var s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    }});
   }}
 
-  Promise.all([
-    import(THREE_URL),
-    import(ORBIT_URL)
-  ]).then(function(mods) {{
-    var THREE = mods[0];
-    var OrbitControls = mods[1].OrbitControls;
+  var base = 'https://cdn.jsdelivr.net/npm/three@0.170.0';
+  var p = window.THREE
+    ? Promise.resolve()
+    : loadScript(base + '/build/three.min.js');
 
+  p.then(function() {{
+    return window.THREE.OrbitControls
+      ? Promise.resolve()
+      : loadScript(base + '/examples/js/controls/OrbitControls.js');
+  }}).then(function() {{
+    initBrain();
+  }}).catch(function(e) {{ console.error('Three.js load failed:', e); }});
+
+  function initBrain() {{
+    var ACTIVATIONS = JSON.parse(document.getElementById('aal-brain-data').textContent);
+    var MESH_URL = document.getElementById('aal-brain-mesh-url').textContent.trim();
+
+    function activationColor(v) {{
+      v = Math.max(0, Math.min(1, v));
+      var stops = [
+        [0.0,  0.071, 0.098, 0.141],
+        [0.15, 0.075, 0.220, 0.310],
+        [0.35, 0.024, 0.714, 0.831],
+        [0.55, 0.455, 0.380, 0.900],
+        [0.75, 0.655, 0.545, 0.984],
+        [0.90, 0.925, 0.380, 0.520],
+        [1.0,  1.000, 0.700, 0.780],
+      ];
+      var lo = stops[0], hi = stops[stops.length - 1];
+      for (var i = 0; i < stops.length - 1; i++) {{
+        if (v >= stops[i][0] && v <= stops[i + 1][0]) {{
+          lo = stops[i]; hi = stops[i + 1]; break;
+        }}
+      }}
+      var t = (hi[0] - lo[0]) > 0 ? (v - lo[0]) / (hi[0] - lo[0]) : 0;
+      t = t * t * (3 - 2 * t);
+      return [
+        lo[1] + t * (hi[1] - lo[1]),
+        lo[2] + t * (hi[2] - lo[2]),
+        lo[3] + t * (hi[3] - lo[3]),
+      ];
+    }}
+
+    var T = window.THREE;
     var canvas = document.getElementById('aal-brain-canvas');
     if (!canvas) return;
 
@@ -442,21 +453,18 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
     var width = rect.width || 700;
     var height = rect.height || 520;
 
-    var renderer = new THREE.WebGLRenderer({{
-      canvas: canvas, antialias: true, alpha: true,
-    }});
+    var renderer = new T.WebGLRenderer({{ canvas: canvas, antialias: true, alpha: true }});
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x030712, 1);
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMapping = T.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
 
-    var scene = new THREE.Scene();
-
-    var camera = new THREE.PerspectiveCamera(32, width / height, 1, 500);
+    var scene = new T.Scene();
+    var camera = new T.PerspectiveCamera(32, width / height, 1, 500);
     camera.position.set(0, 15, 185);
 
-    var controls = new OrbitControls(camera, canvas);
+    var controls = new T.OrbitControls(camera, canvas);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
     controls.autoRotate = true;
@@ -465,99 +473,77 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
     controls.maxDistance = 280;
     controls.enablePan = false;
 
-    /* Dramatic aurora lighting */
-    scene.add(new THREE.AmbientLight(0x1E293B, 0.8));
+    scene.add(new T.AmbientLight(0x1E293B, 0.8));
+    scene.add(new T.HemisphereLight(0x06B6D4, 0xF97316, 0.5));
 
-    var hemi = new THREE.HemisphereLight(0x06B6D4, 0xF97316, 0.5);
-    scene.add(hemi);
-
-    var keyLight = new THREE.DirectionalLight(0xA78BFA, 0.7);
-    keyLight.position.set(60, 90, 70);
-    scene.add(keyLight);
-
-    var fillLight = new THREE.DirectionalLight(0x06B6D4, 0.35);
-    fillLight.position.set(-50, 30, 80);
-    scene.add(fillLight);
-
-    var rimLight = new THREE.DirectionalLight(0xEC4899, 0.45);
-    rimLight.position.set(-40, -30, -70);
-    scene.add(rimLight);
-
-    var underLight = new THREE.PointLight(0xF97316, 0.3, 300);
-    underLight.position.set(0, -80, 30);
-    scene.add(underLight);
+    var kl = new T.DirectionalLight(0xA78BFA, 0.7);
+    kl.position.set(60, 90, 70); scene.add(kl);
+    var fl = new T.DirectionalLight(0x06B6D4, 0.35);
+    fl.position.set(-50, 30, 80); scene.add(fl);
+    var rl = new T.DirectionalLight(0xEC4899, 0.45);
+    rl.position.set(-40, -30, -70); scene.add(rl);
+    var ul = new T.PointLight(0xF97316, 0.3, 300);
+    ul.position.set(0, -80, 30); scene.add(ul);
 
     fetch(MESH_URL).then(function(r) {{ return r.json(); }}).then(function(mesh) {{
-      var geometry = new THREE.BufferGeometry();
-
+      var geo = new T.BufferGeometry();
       var verts = new Float32Array(mesh.vertices.length * 3);
       for (var i = 0; i < mesh.vertices.length; i++) {{
-        verts[i * 3] = mesh.vertices[i][0];
-        verts[i * 3 + 1] = mesh.vertices[i][1];
-        verts[i * 3 + 2] = mesh.vertices[i][2];
+        verts[i*3] = mesh.vertices[i][0];
+        verts[i*3+1] = mesh.vertices[i][1];
+        verts[i*3+2] = mesh.vertices[i][2];
       }}
-      geometry.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+      geo.setAttribute('position', new T.BufferAttribute(verts, 3));
 
-      var indices = new Uint32Array(mesh.faces.length * 3);
+      var idx = new Uint32Array(mesh.faces.length * 3);
       for (var i = 0; i < mesh.faces.length; i++) {{
-        indices[i * 3] = mesh.faces[i][0];
-        indices[i * 3 + 1] = mesh.faces[i][1];
-        indices[i * 3 + 2] = mesh.faces[i][2];
+        idx[i*3] = mesh.faces[i][0];
+        idx[i*3+1] = mesh.faces[i][1];
+        idx[i*3+2] = mesh.faces[i][2];
       }}
-      geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+      geo.setIndex(new T.BufferAttribute(idx, 1));
 
-      var colors = new Float32Array(mesh.vertices.length * 3);
+      var cols = new Float32Array(mesh.vertices.length * 3);
       for (var i = 0; i < mesh.vertices.length; i++) {{
-        var act = i < ACTIVATIONS.length ? ACTIVATIONS[i] : 0;
-        var c = activationColor(act);
-        colors[i * 3] = c[0];
-        colors[i * 3 + 1] = c[1];
-        colors[i * 3 + 2] = c[2];
+        var a = i < ACTIVATIONS.length ? ACTIVATIONS[i] : 0;
+        var c = activationColor(a);
+        cols[i*3] = c[0]; cols[i*3+1] = c[1]; cols[i*3+2] = c[2];
       }}
-      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      geometry.computeVertexNormals();
+      geo.setAttribute('color', new T.BufferAttribute(cols, 3));
+      geo.computeVertexNormals();
 
-      /* Glossy brain material */
-      var material = new THREE.MeshPhysicalMaterial({{
-        vertexColors: true,
-        roughness: 0.38,
-        metalness: 0.12,
-        clearcoat: 0.3,
-        clearcoatRoughness: 0.4,
-        side: THREE.DoubleSide,
-        envMapIntensity: 0.5,
+      var mat = new T.MeshPhysicalMaterial({{
+        vertexColors: true, roughness: 0.38, metalness: 0.12,
+        clearcoat: 0.3, clearcoatRoughness: 0.4,
+        side: T.DoubleSide, envMapIntensity: 0.5,
       }});
+      var brain = new T.Mesh(geo, mat);
+      brain.rotation.x = -Math.PI * 0.08;
+      scene.add(brain);
 
-      var brainMesh = new THREE.Mesh(geometry, material);
-      brainMesh.rotation.x = -Math.PI * 0.08;
-      scene.add(brainMesh);
-
-      /* Subtle glowing wireframe */
-      var wireMat = new THREE.MeshBasicMaterial({{
+      var wm = new T.MeshBasicMaterial({{
         color: 0x6366F1, wireframe: true, transparent: true, opacity: 0.03,
       }});
-      var wireOverlay = new THREE.Mesh(geometry.clone(), wireMat);
-      wireOverlay.rotation.x = brainMesh.rotation.x;
-      scene.add(wireOverlay);
+      var wire = new T.Mesh(geo.clone(), wm);
+      wire.rotation.x = brain.rotation.x;
+      scene.add(wire);
     }}).catch(function(e) {{ console.error('Brain mesh load failed:', e); }});
 
-    function animate() {{
+    (function animate() {{
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
-    }}
-    animate();
+    }})();
 
-    var ro = new ResizeObserver(function() {{
+    new ResizeObserver(function() {{
       var r = canvas.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) {{
         camera.aspect = r.width / r.height;
         camera.updateProjectionMatrix();
         renderer.setSize(r.width, r.height);
       }}
-    }});
-    ro.observe(canvas.parentElement);
-  }}).catch(function(e) {{ console.error('Three.js load failed:', e); }});
+    }}).observe(canvas.parentElement);
+  }}
 }})();
 "
 />
