@@ -42,13 +42,13 @@
     function activationColor(v) {
       v = Math.max(0, Math.min(1, v));
       var stops = [
-        [0.0,  0.071, 0.098, 0.141],
-        [0.15, 0.075, 0.220, 0.310],
-        [0.35, 0.024, 0.714, 0.831],
-        [0.55, 0.455, 0.380, 0.900],
-        [0.75, 0.655, 0.545, 0.984],
-        [0.90, 0.925, 0.380, 0.520],
-        [1.0,  1.000, 0.700, 0.780]
+        [0.0,  0.120, 0.160, 0.240],   /* brighter base */
+        [0.12, 0.100, 0.300, 0.420],   /* teal hint */
+        [0.30, 0.050, 0.780, 0.900],   /* bright cyan */
+        [0.50, 0.500, 0.440, 0.950],   /* blue-purple */
+        [0.70, 0.720, 0.600, 1.000],   /* bright purple */
+        [0.85, 0.960, 0.440, 0.560],   /* hot rose */
+        [1.0,  1.000, 0.800, 0.850]    /* bright pink-white */
       ];
       var lo = stops[0], hi = stops[stops.length - 1];
       for (var i = 0; i < stops.length - 1; i++) {
@@ -74,7 +74,7 @@
     renderer.setClearColor(0x030712, 1);
     if (T.ACESFilmicToneMapping) {
       renderer.toneMapping = T.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.2;
+      renderer.toneMappingExposure = 1.8;
     }
 
     var scene = new T.Scene();
@@ -90,12 +90,14 @@
     controls.maxDistance = 280;
     controls.enablePan = false;
 
-    scene.add(new T.AmbientLight(0x1E293B, 0.8));
-    scene.add(new T.HemisphereLight(0x06B6D4, 0xF97316, 0.5));
-    var kl = new T.DirectionalLight(0xA78BFA, 0.7); kl.position.set(60,90,70); scene.add(kl);
-    var fl = new T.DirectionalLight(0x06B6D4, 0.35); fl.position.set(-50,30,80); scene.add(fl);
-    var rl = new T.DirectionalLight(0xEC4899, 0.45); rl.position.set(-40,-30,-70); scene.add(rl);
-    var ul = new T.PointLight(0xF97316, 0.3, 300); ul.position.set(0,-80,30); scene.add(ul);
+    /* Bright, dramatic lighting for projection readability */
+    scene.add(new T.AmbientLight(0x6680AA, 1.5));
+    scene.add(new T.HemisphereLight(0x06B6D4, 0xF97316, 0.8));
+    var kl = new T.DirectionalLight(0xC4B5FD, 1.2); kl.position.set(60,90,70); scene.add(kl);
+    var fl = new T.DirectionalLight(0x22D3EE, 0.6); fl.position.set(-50,30,80); scene.add(fl);
+    var rl = new T.DirectionalLight(0xF472B6, 0.7); rl.position.set(-40,-30,-70); scene.add(rl);
+    var ul = new T.PointLight(0xFBBF24, 0.5, 300); ul.position.set(0,-80,30); scene.add(ul);
+    var topLight = new T.DirectionalLight(0xFFFFFF, 0.4); topLight.position.set(0,100,0); scene.add(topLight);
 
     var raycaster = new T.Raycaster();
     var mouse = new T.Vector2();
@@ -129,7 +131,8 @@
       geo.computeVertexNormals();
 
       var mat = new T.MeshStandardMaterial({
-        vertexColors: true, roughness: 0.4, metalness: 0.15, side: T.DoubleSide
+        vertexColors: true, roughness: 0.3, metalness: 0.1,
+        side: T.DoubleSide, emissiveIntensity: 0.15, emissive: new T.Color(0x1a1a2e)
       });
       brainMesh = new T.Mesh(geo, mat);
       brainMesh.rotation.x = -Math.PI * 0.08;
@@ -217,9 +220,9 @@
           el.className = "aal-brain-callout";
           el.style.animationDelay = (ri * 120) + "ms";
           el.innerHTML = "<span class='aal-brain-callout-dot' style='background:" + ROIS[ri].color
-            + ";box-shadow:0 0 8px " + ROIS[ri].color + "'></span>"
-            + "<span class='aal-brain-callout-line' style='background:" + ROIS[ri].color + "55'></span>"
-            + "<span>" + ROIS[ri].label + "</span>";
+            + ";box-shadow:0 0 12px " + ROIS[ri].color + ",0 0 24px " + ROIS[ri].color + "66'></span>"
+            + "<span class='aal-brain-callout-line' style='background:" + ROIS[ri].color + "'></span>"
+            + "<span style='color:" + ROIS[ri].color + ";text-shadow:0 0 8px " + ROIS[ri].color + "66'>" + ROIS[ri].label + "</span>";
           calloutsEl.appendChild(el);
           calloutEls.push(el);
         }

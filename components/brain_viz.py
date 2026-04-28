@@ -339,22 +339,23 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
 }}
 .aal-brain-callout {{
   position: absolute;
-  display: flex; align-items: center; gap: 0.4em;
-  font-size: 0.82em; font-weight: 700;
-  color: #F1F5F9;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+  display: flex; align-items: center; gap: 0.5em;
+  font-size: 1em; font-weight: 800;
+  color: #FFFFFF;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.6);
   opacity: 0;
   animation: aal-callout-in 0.6s ease-out forwards;
   transition: opacity 0.3s;
   white-space: nowrap;
+  pointer-events: none;
 }}
 .aal-brain-callout-dot {{
-  width: 8px; height: 8px;
+  width: 10px; height: 10px;
   border-radius: 50%; flex-shrink: 0;
 }}
 .aal-brain-callout-line {{
-  width: 24px; height: 1px;
-  flex-shrink: 0;
+  width: 28px; height: 2px;
+  flex-shrink: 0; border-radius: 1px;
 }}
 @keyframes aal-callout-in {{
   0% {{ opacity: 0; transform: translateY(6px); }}
@@ -363,8 +364,8 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
 
 /* ── CONTROLS & LEGEND ── */
 .aal-brain-controls-hint {{
-  text-align: center; color: #CBD5E1;
-  font-size: 0.95em; margin-top: 0.8em;
+  text-align: center; color: #E2E8F0;
+  font-size: 1em; margin-top: 0.8em;
   letter-spacing: 0.04em; font-weight: 600;
 }}
 .aal-brain-legend {{
@@ -373,9 +374,9 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
   margin-top: 0.6em;
 }}
 .aal-brain-legend-label {{
-  color: #CBD5E1; font-size: 0.88em;
+  color: #F1F5F9; font-size: 0.95em;
   text-transform: uppercase; letter-spacing: 0.12em;
-  font-weight: 700;
+  font-weight: 800;
 }}
 .aal-brain-legend-bar {{
   width: 180px; height: 10px;
@@ -395,11 +396,11 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
     inset 0 1px 0 rgba(255,255,255,0.04);
 }}
 .aal-brain-regions-title {{
-  font-size: 1.6em; font-weight: 900;
+  font-size: 1.7em; font-weight: 900;
   color: #FFFFFF; margin-bottom: 0.1em;
 }}
 .aal-brain-regions-subtitle {{
-  color: #CBD5E1; font-size: 1em;
+  color: #E2E8F0; font-size: 1.05em;
   margin-bottom: 1.3em; font-weight: 500;
 }}
 
@@ -423,11 +424,11 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
   border-radius: 50%; flex-shrink: 0;
 }}
 .aal-brain-roi-label {{
-  font-size: 1.1em; font-weight: 700;
-  color: #F8FAFC; flex: 1;
+  font-size: 1.15em; font-weight: 800;
+  color: #FFFFFF; flex: 1;
 }}
 .aal-brain-roi-pct {{
-  font-size: 1.2em; font-weight: 900;
+  font-size: 1.3em; font-weight: 900;
   font-variant-numeric: tabular-nums;
 }}
 .aal-brain-bar-track {{
@@ -439,20 +440,20 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
   transition: width 1.4s cubic-bezier(0.16,1,0.3,1);
 }}
 .aal-brain-roi-desc {{
-  color: #CBD5E1; font-size: 0.92em;
+  color: #E2E8F0; font-size: 0.95em;
   margin-top: 0.2em; font-weight: 400;
 }}
 
 /* ── NARRATIVE ── */
 .aal-brain-narrative {{
   margin-top: 1.5em; padding-top: 1.2em;
-  border-top: 1px solid rgba(167,139,250,0.15);
-  color: #E2E8F0; font-size: 1.05em;
+  border-top: 1px solid rgba(167,139,250,0.20);
+  color: #F1F5F9; font-size: 1.1em;
   line-height: 1.6;
 }}
 .aal-brain-narrative-headline {{
   display: block; color: #FFFFFF;
-  font-size: 1.15em; font-weight: 800;
+  font-size: 1.2em; font-weight: 900;
   margin-bottom: 0.3em;
   font-style: normal;
 }}
