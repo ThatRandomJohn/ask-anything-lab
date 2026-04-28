@@ -49,7 +49,7 @@ def _render_source_rows(sources):
               </div>
               <div style="color: {color}; margin-left: 0.9em; font-family: 'SF Mono', monospace;
                    font-size: 0.9em; font-weight: 600;">{pct}%</div>
-              <div style="color: #475569; margin-left: 1.1em; font-size: 0.78em;
+              <div style="color: #94A3B8; margin-left: 1.1em; font-size: 0.78em;
                    text-transform: uppercase; letter-spacing: 0.12em; padding: 0.2em 0.6em;
                    border-radius: 4px; background: rgba(148,163,184,0.06);">{stype}</div>
             </div>
@@ -166,7 +166,7 @@ def render_sources(sources=None, embeddings=None, label="Step 3 \u00b7 Retrieve"
 }}
 .aal-retrieve-eyebrow {{
     display: inline-flex; align-items: center; gap: 0.6em;
-    color: #94A3B8; font-size: 0.85em; letter-spacing: 0.28em;
+    color: #CBD5E1; font-size: 0.85em; letter-spacing: 0.28em;
     text-transform: uppercase;
     padding: 0.45em 1em; border-radius: 999px;
     background: rgba(12,16,24,0.55); border: 1px solid rgba(148,163,184,0.15);
@@ -178,7 +178,7 @@ def render_sources(sources=None, embeddings=None, label="Step 3 \u00b7 Retrieve"
     letter-spacing: -0.02em;
 }}
 .aal-retrieve-subtitle {{
-    color: #94A3B8; font-size: 1.1em; line-height: 1.6; margin-bottom: 1.5em;
+    color: #E2E8F0; font-size: 1.1em; line-height: 1.6; margin-bottom: 1.5em;
     max-width: 800px;
 }}
 @keyframes sourceFadeIn {{
@@ -203,7 +203,7 @@ def render_sources(sources=None, embeddings=None, label="Step 3 \u00b7 Retrieve"
     letter-spacing: 0.1em;
 }}
 .aal-cluster-words {{
-    color: #94A3B8; font-size: 0.85em; font-style: italic;
+    color: #CBD5E1; font-size: 0.85em; font-style: italic;
 }}
 .aal-cluster-arrow {{
     width: 24px; height: 12px; flex-shrink: 0;

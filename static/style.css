@@ -1346,7 +1346,7 @@ footer { display: none !important; }
 }
 .aal-synth-explainer-icon { flex-shrink: 0; margin-top: 2px; }
 .aal-synth-explainer-text {
-    color: #94A3B8;
+    color: #E2E8F0;
     font-size: 0.95em;
     line-height: 1.55;
 }
@@ -1784,4 +1784,32 @@ footer { display: none !important; }
 @keyframes aalCardSlideIn {
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* ── PROJECTION READABILITY OVERRIDES ──
+   Brighten all body/description text for back-of-room legibility.
+   The original palette (#94A3B8, #64748B) is too dim when projected. */
+
+/* Source list / retrieve stage */
+.aal-src-title { color: #F1F5F9 !important; font-weight: 700 !important; }
+.aal-src-desc, .aal-src-score-label { color: #CBD5E1 !important; }
+.aal-retrieve-subtitle, .aal-retrieve-desc { color: #CBD5E1 !important; }
+
+/* Typewriter / synthesize stage */
+.aal-typewriter-body, .aal-typewriter-text { color: #E2E8F0 !important; }
+
+/* Influence analysis stage */
+.aal-influence-subtitle { color: #CBD5E1 !important; }
+.aal-inf-desc { color: #CBD5E1 !important; }
+.aal-inf-label { color: #F1F5F9 !important; }
+.aal-inf-count { color: #CBD5E1 !important; }
+.aal-influence-response-body { color: #E2E8F0 !important; }
+
+/* Embed stage */
+.aal-embed-desc { color: #CBD5E1 !important; }
+
+/* Study / compare */
+.aal-study-desc, .aal-agg-subtitle { color: #CBD5E1 !important; }
+
+/* Global: any remaining muted text inside audience viz */
+.aal-think-subtitle, .aal-think-detail { color: #CBD5E1 !important; }
 

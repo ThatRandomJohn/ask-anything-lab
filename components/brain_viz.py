@@ -463,7 +463,7 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
 <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
      onload="
 (function() {{
-  if (document.getElementById('aal-brain-canvas') && window._aalBrainDone) return;
+  /* Always re-init — Gradio replaces the DOM each stage transition */
   window._aalBrainDone = true;
 
   function loadScript(src) {{
