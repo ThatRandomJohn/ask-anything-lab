@@ -124,8 +124,6 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
     <div class="aal-brain-glow aal-brain-glow-1"></div>
     <div class="aal-brain-glow aal-brain-glow-2"></div>
     <div class="aal-brain-glow aal-brain-glow-3"></div>
-    <div class="aal-think-blob aal-think-blob-a" style="opacity:0.22;"></div>
-    <div class="aal-think-blob aal-think-blob-c" style="opacity:0.22;"></div>
   </div>
 
   <div class="aal-brain-inner">
@@ -284,15 +282,13 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
 
 /* ── CANVAS CARD ── */
 .aal-brain-canvas-card {{
-  background: rgba(15,23,42,0.55);
-  border: 1px solid rgba(167,139,250,0.22);
+  background: rgba(15,23,42,0.92);
+  border: 1px solid rgba(167,139,250,0.30);
   border-radius: 22px; padding: 1em;
   position: relative;
-  backdrop-filter: blur(16px);
   box-shadow:
-    0 0 40px rgba(167,139,250,0.06),
-    0 0 80px rgba(6,182,212,0.04),
-    inset 0 1px 0 rgba(255,255,255,0.04);
+    0 0 40px rgba(167,139,250,0.08),
+    0 0 80px rgba(6,182,212,0.05);
 }}
 .aal-brain-canvas-wrap {{
   position: relative; overflow: hidden;
@@ -400,13 +396,10 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
 
 /* ── REGIONS CARD ── */
 .aal-brain-regions-card {{
-  background: rgba(15,23,42,0.55);
-  border: 1px solid rgba(167,139,250,0.15);
+  background: rgba(15,23,42,0.92);
+  border: 1px solid rgba(167,139,250,0.25);
   border-radius: 22px; padding: 1.8em;
-  backdrop-filter: blur(16px);
-  box-shadow:
-    0 0 30px rgba(167,139,250,0.04),
-    inset 0 1px 0 rgba(255,255,255,0.04);
+  box-shadow: 0 0 30px rgba(167,139,250,0.06);
 }}
 .aal-brain-regions-title {{
   font-size: 1.7em; font-weight: 900;
