@@ -71,15 +71,15 @@ def _render_roi_breakdown(roi_scores: dict) -> str:
           <div class="aal-brain-roi-header">
             <span class="aal-brain-roi-dot" style="background:{meta['color']};
               box-shadow: 0 0 14px {meta['color']}, 0 0 28px {meta['color']}44;"></span>
-            <span class="aal-brain-roi-label">{meta['label']}</span>
-            <span class="aal-brain-roi-pct" style="color:{meta['color']};">{pct}%</span>
+            <span class="aal-brain-roi-label" style="color:#FFFFFF;font-weight:800;font-size:1.15em;">{meta['label']}</span>
+            <span class="aal-brain-roi-pct" style="color:{meta['color']};font-size:1.3em;font-weight:900;">{pct}%</span>
           </div>
           <div class="aal-brain-bar-track">
             <div class="aal-brain-bar-fill" style="width:{pct}%; background:
               linear-gradient(90deg, {meta['color']}44, {meta['color']});
               box-shadow: 0 0 12px {meta['color']}66;"></div>
           </div>
-          <div class="aal-brain-roi-desc">{meta['desc']}</div>
+          <div style="color:#FFFFFF;font-size:0.95em;margin-top:0.2em;font-weight:500;">{meta['desc']}</div>
         </div>
         """)
     return "".join(rows)
@@ -134,13 +134,13 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
       </div>
     </div>
 
-    <h2 class="aal-brain-title">
+    <h2 style="font-size:3.2em;font-weight:900;color:#FFFFFF;margin:0.15em 0 0.2em;line-height:1.1;">
       This is your brain <span class="aal-brain-title-accent">on AI.</span>
     </h2>
-    <p class="aal-brain-subtitle">
-      TRIBE v2 maps <strong>20,484 cortical points</strong> to predict how
+    <p style="color:#FFFFFF;font-size:1.3em;max-width:780px;line-height:1.55;margin:0 0 0.8em;">
+      TRIBE v2 maps <strong style="color:#FFFFFF;font-weight:800;">20,484 cortical points</strong> to predict how
       your brain responds to what you just read.
-      <span class="aal-brain-subtitle-em">The bright spots are where language becomes feeling.</span>
+      <span style="color:#FFFFFF;font-weight:500;">The bright spots are where language becomes feeling.</span>
     </p>
     {status_banner}
 
@@ -151,24 +151,25 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
           <div id="aal-brain-tooltip" class="aal-brain-tooltip"></div>
           <div id="aal-brain-focus-panel" class="aal-brain-focus-panel"></div>
         </div>
-        <div class="aal-brain-controls-hint">
+        <div style="text-align:center;color:#FFFFFF;font-size:1em;margin-top:0.8em;font-weight:600;">
           Click a region to focus &middot; Drag to rotate &middot; Scroll to zoom
         </div>
-        <div class="aal-brain-legend">
-          <span class="aal-brain-legend-label">Low</span>
-          <div class="aal-brain-legend-bar"></div>
-          <span class="aal-brain-legend-label">High</span>
+        <div style="display:flex;align-items:center;justify-content:center;gap:0.8em;margin-top:0.6em;">
+          <span style="color:#FFFFFF;font-size:0.95em;text-transform:uppercase;letter-spacing:0.12em;font-weight:800;">Low</span>
+          <div style="width:180px;height:10px;border-radius:5px;background:linear-gradient(90deg,#1E293B,#06B6D4,#A78BFA,#FB7185);box-shadow:0 0 12px rgba(167,139,250,0.3);"></div>
+          <span style="color:#FFFFFF;font-size:0.95em;text-transform:uppercase;letter-spacing:0.12em;font-weight:800;">High</span>
         </div>
       </div>
 
       <div class="aal-brain-regions-card aal-influence-card-entrance" style="animation-delay:200ms;">
-        <div class="aal-brain-regions-title">Regional Activation</div>
-        <div class="aal-brain-regions-subtitle">
+        <div style="font-size:1.7em;font-weight:900;color:#FFFFFF;margin-bottom:0.1em;">Regional Activation</div>
+        <div style="color:#FFFFFF;font-size:1.05em;margin-bottom:1.3em;font-weight:500;">
           Predicted cortical response to the AI&rsquo;s answer
         </div>
         {roi_html}
-        <div class="aal-brain-narrative">
-          <strong class="aal-brain-narrative-headline">
+        <div style="margin-top:1.5em;padding-top:1.2em;border-top:1px solid rgba(167,139,250,0.20);
+             color:#FFFFFF;font-size:1.1em;line-height:1.6;">
+          <strong style="display:block;color:#FFFFFF;font-size:1.2em;font-weight:900;margin-bottom:0.3em;">
             The AI&rsquo;s approval language lights up your reward circuits.
           </strong>
           The same regions triggered by social bonding, trust,

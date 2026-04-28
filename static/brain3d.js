@@ -106,8 +106,8 @@
     controls.dampingFactor = 0.06;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.4;
-    controls.minDistance = 90;
-    controls.maxDistance = 280;
+    controls.minDistance = 140;
+    controls.maxDistance = 250;
     controls.enablePan = false;
 
     /* Bright lighting */
