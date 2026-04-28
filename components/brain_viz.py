@@ -306,178 +306,157 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
 }}
 </style>
 
-<script type="importmap">
-{{
-  "imports": {{
-    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+<div id="aal-brain-data" style="display:none;">{act_json}</div>
+<div id="aal-brain-mesh-url" style="display:none;">{mesh_src}</div>
+<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+     onload="
+(function() {{
+  if (window._aalBrainInit) return;
+  window._aalBrainInit = true;
+
+  var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+  var ORBIT_URL = 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js';
+
+  var ACTIVATIONS = JSON.parse(document.getElementById('aal-brain-data').textContent);
+  var MESH_URL = document.getElementById('aal-brain-mesh-url').textContent.trim();
+
+  function activationColor(v) {{
+    v = Math.max(0, Math.min(1, v));
+    var stops = [
+      [0.0, 0.118, 0.161, 0.231],
+      [0.33, 0.024, 0.714, 0.831],
+      [0.66, 0.655, 0.545, 0.984],
+      [1.0, 0.984, 0.443, 0.522],
+    ];
+    var lo = stops[0], hi = stops[stops.length - 1];
+    for (var i = 0; i < stops.length - 1; i++) {{
+      if (v >= stops[i][0] && v <= stops[i + 1][0]) {{
+        lo = stops[i]; hi = stops[i + 1];
+        break;
+      }}
+    }}
+    var t = (hi[0] - lo[0]) > 0 ? (v - lo[0]) / (hi[0] - lo[0]) : 0;
+    return [
+      lo[1] + t * (hi[1] - lo[1]),
+      lo[2] + t * (hi[2] - lo[2]),
+      lo[3] + t * (hi[3] - lo[3]),
+    ];
   }}
-}}
-</script>
 
-<script type="module">
-import * as THREE from 'three';
-import {{ OrbitControls }} from 'three/addons/controls/OrbitControls.js';
+  Promise.all([
+    import(THREE_URL),
+    import(ORBIT_URL)
+  ]).then(function(mods) {{
+    var THREE = mods[0];
+    var OrbitControls = mods[1].OrbitControls;
 
-const ACTIVATIONS = {act_json};
-const MESH_URL = "{mesh_src}";
+    var canvas = document.getElementById('aal-brain-canvas');
+    if (!canvas) return;
 
-// Color stops: slate -> cyan -> purple -> rose
-function activationColor(v) {{
-  v = Math.max(0, Math.min(1, v));
-  const stops = [
-    [0.0, 0.118, 0.161, 0.231],  // #1E293B slate
-    [0.33, 0.024, 0.714, 0.831], // #06B6D4 cyan
-    [0.66, 0.655, 0.545, 0.984], // #A78BFA purple
-    [1.0, 0.984, 0.443, 0.522],  // #FB7185 rose
-  ];
-  let lo = stops[0], hi = stops[stops.length - 1];
-  for (let i = 0; i < stops.length - 1; i++) {{
-    if (v >= stops[i][0] && v <= stops[i + 1][0]) {{
-      lo = stops[i]; hi = stops[i + 1];
-      break;
-    }}
-  }}
-  const t = (hi[0] - lo[0]) > 0 ? (v - lo[0]) / (hi[0] - lo[0]) : 0;
-  return [
-    lo[1] + t * (hi[1] - lo[1]),
-    lo[2] + t * (hi[2] - lo[2]),
-    lo[3] + t * (hi[3] - lo[3]),
-  ];
-}}
+    var rect = canvas.getBoundingClientRect();
+    var width = rect.width || 700;
+    var height = rect.height || 420;
 
-async function init() {{
-  const canvas = document.getElementById('aal-brain-canvas');
-  if (!canvas) return;
-
-  const rect = canvas.getBoundingClientRect();
-  const width = rect.width || 700;
-  const height = rect.height || 420;
-
-  const renderer = new THREE.WebGLRenderer({{
-    canvas, antialias: true, alpha: true,
-  }});
-  renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x06080C, 1);
-
-  const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x06080C, 0.003);
-
-  const camera = new THREE.PerspectiveCamera(35, width / height, 1, 500);
-  camera.position.set(0, 20, 180);
-
-  const controls = new OrbitControls(camera, canvas);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
-  controls.autoRotate = true;
-  controls.autoRotateSpeed = 0.6;
-  controls.minDistance = 80;
-  controls.maxDistance = 300;
-  controls.enablePan = false;
-
-  // Lighting — aurora-style
-  const ambientLight = new THREE.AmbientLight(0x1E293B, 0.6);
-  scene.add(ambientLight);
-
-  const hemiLight = new THREE.HemisphereLight(0x06B6D4, 0xF97316, 0.4);
-  scene.add(hemiLight);
-
-  const keyLight = new THREE.DirectionalLight(0xA78BFA, 0.5);
-  keyLight.position.set(50, 80, 60);
-  scene.add(keyLight);
-
-  const rimLight = new THREE.DirectionalLight(0xEC4899, 0.3);
-  rimLight.position.set(-40, -20, -60);
-  scene.add(rimLight);
-
-  // Load mesh
-  try {{
-    const resp = await fetch(MESH_URL);
-    const mesh = await resp.json();
-
-    const geometry = new THREE.BufferGeometry();
-    const verts = new Float32Array(mesh.vertices.length * 3);
-    for (let i = 0; i < mesh.vertices.length; i++) {{
-      verts[i * 3] = mesh.vertices[i][0];
-      verts[i * 3 + 1] = mesh.vertices[i][1];
-      verts[i * 3 + 2] = mesh.vertices[i][2];
-    }}
-    geometry.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-
-    const indices = new Uint32Array(mesh.faces.length * 3);
-    for (let i = 0; i < mesh.faces.length; i++) {{
-      indices[i * 3] = mesh.faces[i][0];
-      indices[i * 3 + 1] = mesh.faces[i][1];
-      indices[i * 3 + 2] = mesh.faces[i][2];
-    }}
-    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-
-    // Vertex colors from activation data
-    const colors = new Float32Array(mesh.vertices.length * 3);
-    for (let i = 0; i < mesh.vertices.length; i++) {{
-      const act = i < ACTIVATIONS.length ? ACTIVATIONS[i] : 0;
-      const [r, g, b] = activationColor(act);
-      colors[i * 3] = r;
-      colors[i * 3 + 1] = g;
-      colors[i * 3 + 2] = b;
-    }}
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geometry.computeVertexNormals();
-
-    // Brain material
-    const material = new THREE.MeshStandardMaterial({{
-      vertexColors: true,
-      roughness: 0.55,
-      metalness: 0.15,
-      side: THREE.DoubleSide,
+    var renderer = new THREE.WebGLRenderer({{
+      canvas: canvas, antialias: true, alpha: true,
     }});
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x06080C, 1);
 
-    const brainMesh = new THREE.Mesh(geometry, material);
-    brainMesh.rotation.x = -Math.PI * 0.1;
-    scene.add(brainMesh);
+    var scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x06080C, 0.003);
 
-    // Subtle wireframe overlay
-    const wireMat = new THREE.MeshBasicMaterial({{
-      color: 0x334155,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.04,
-    }});
-    const wireOverlay = new THREE.Mesh(geometry, wireMat);
-    wireOverlay.rotation.x = brainMesh.rotation.x;
-    scene.add(wireOverlay);
+    var camera = new THREE.PerspectiveCamera(35, width / height, 1, 500);
+    camera.position.set(0, 20, 180);
 
-  }} catch (e) {{
-    console.error('Brain mesh load failed:', e);
-  }}
+    var controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.6;
+    controls.minDistance = 80;
+    controls.maxDistance = 300;
+    controls.enablePan = false;
 
-  // Animation loop
-  function animate() {{
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-  }}
-  animate();
+    scene.add(new THREE.AmbientLight(0x1E293B, 0.6));
+    scene.add(new THREE.HemisphereLight(0x06B6D4, 0xF97316, 0.4));
 
-  // Handle resize
-  const ro = new ResizeObserver(() => {{
-    const r = canvas.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) {{
-      camera.aspect = r.width / r.height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(r.width, r.height);
+    var keyLight = new THREE.DirectionalLight(0xA78BFA, 0.5);
+    keyLight.position.set(50, 80, 60);
+    scene.add(keyLight);
+
+    var rimLight = new THREE.DirectionalLight(0xEC4899, 0.3);
+    rimLight.position.set(-40, -20, -60);
+    scene.add(rimLight);
+
+    fetch(MESH_URL).then(function(r) {{ return r.json(); }}).then(function(mesh) {{
+      var geometry = new THREE.BufferGeometry();
+
+      var verts = new Float32Array(mesh.vertices.length * 3);
+      for (var i = 0; i < mesh.vertices.length; i++) {{
+        verts[i * 3] = mesh.vertices[i][0];
+        verts[i * 3 + 1] = mesh.vertices[i][1];
+        verts[i * 3 + 2] = mesh.vertices[i][2];
+      }}
+      geometry.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+
+      var indices = new Uint32Array(mesh.faces.length * 3);
+      for (var i = 0; i < mesh.faces.length; i++) {{
+        indices[i * 3] = mesh.faces[i][0];
+        indices[i * 3 + 1] = mesh.faces[i][1];
+        indices[i * 3 + 2] = mesh.faces[i][2];
+      }}
+      geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+
+      var colors = new Float32Array(mesh.vertices.length * 3);
+      for (var i = 0; i < mesh.vertices.length; i++) {{
+        var act = i < ACTIVATIONS.length ? ACTIVATIONS[i] : 0;
+        var c = activationColor(act);
+        colors[i * 3] = c[0];
+        colors[i * 3 + 1] = c[1];
+        colors[i * 3 + 2] = c[2];
+      }}
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      geometry.computeVertexNormals();
+
+      var material = new THREE.MeshStandardMaterial({{
+        vertexColors: true,
+        roughness: 0.55,
+        metalness: 0.15,
+        side: THREE.DoubleSide,
+      }});
+
+      var brainMesh = new THREE.Mesh(geometry, material);
+      brainMesh.rotation.x = -Math.PI * 0.1;
+      scene.add(brainMesh);
+
+      var wireMat = new THREE.MeshBasicMaterial({{
+        color: 0x334155, wireframe: true, transparent: true, opacity: 0.04,
+      }});
+      var wireOverlay = new THREE.Mesh(geometry, wireMat);
+      wireOverlay.rotation.x = brainMesh.rotation.x;
+      scene.add(wireOverlay);
+    }}).catch(function(e) {{ console.error('Brain mesh load failed:', e); }});
+
+    function animate() {{
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
     }}
-  }});
-  ro.observe(canvas.parentElement);
-}}
+    animate();
 
-// Wait for DOM and then init
-if (document.readyState === 'loading') {{
-  document.addEventListener('DOMContentLoaded', init);
-}} else {{
-  // Small delay to ensure Gradio has rendered the HTML
-  setTimeout(init, 100);
-}}
-</script>
+    var ro = new ResizeObserver(function() {{
+      var r = canvas.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {{
+        camera.aspect = r.width / r.height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(r.width, r.height);
+      }}
+    }});
+    ro.observe(canvas.parentElement);
+  }}).catch(function(e) {{ console.error('Three.js load failed:', e); }});
+}})();
+"
+/>
 """
