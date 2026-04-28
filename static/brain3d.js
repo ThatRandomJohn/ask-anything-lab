@@ -252,6 +252,14 @@
           "<div class='aal-focus-name' style='color:" + roi.color + "'>" + roi.label + "</div>" +
           "<div class='aal-focus-score' style='color:" + roi.color + "'>" + pct + "% activation</div>" +
           "<div class='aal-focus-desc'>" + roi.desc + "</div>" +
+          "<div class='aal-focus-detail'>This region activates when the AI uses " +
+          (roi.key === "reward" ? "approval and validation language — making you feel good about following its advice." :
+           roi.key === "amygdala" ? "urgency and threat signals — triggering your fight-or-flight response." :
+           roi.key === "insula" ? "empathetic mirroring — making you feel heard and understood." :
+           roi.key === "prefrontal" ? "logical framing and evidence — engaging your reasoning circuits." :
+           roi.key === "temporal" ? "storytelling and metaphor — helping you find meaning in the response." :
+           roi.key === "cingulate" ? "nuanced language — creating a sense of balanced, trustworthy advice." :
+           "language patterns from its training data.") + "</div>" +
           "<button class='aal-focus-back' onclick='window._aalBrainUnfocus()'>Back to overview</button>";
         focusPanel.style.display = "block";
       }

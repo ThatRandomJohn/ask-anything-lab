@@ -252,7 +252,7 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
   background-clip: text;
 }}
 .aal-brain-subtitle {{
-  color: #E2E8F0; font-size: 1.3em;
+  color: #F1F5F9; font-size: 1.3em;
   max-width: 780px; line-height: 1.55;
   margin: 0 0 0.8em; font-weight: 400;
 }}
@@ -356,8 +356,12 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
   margin-bottom: 0.3em;
 }}
 .aal-focus-desc {{
-  color: #E2E8F0; font-size: 1em;
-  margin-bottom: 0.6em;
+  color: #F1F5F9; font-size: 1.05em;
+  margin-bottom: 0.4em; font-weight: 500;
+}}
+.aal-focus-detail {{
+  color: #E2E8F0; font-size: 0.95em;
+  line-height: 1.5; margin-bottom: 0.8em;
 }}
 .aal-focus-back {{
   background: rgba(167,139,250,0.15);
@@ -373,7 +377,7 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
 
 /* ── CONTROLS & LEGEND ── */
 .aal-brain-controls-hint {{
-  text-align: center; color: #E2E8F0;
+  text-align: center; color: #F1F5F9;
   font-size: 1em; margin-top: 0.8em;
   letter-spacing: 0.04em; font-weight: 600;
 }}
@@ -409,7 +413,7 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
   color: #FFFFFF; margin-bottom: 0.1em;
 }}
 .aal-brain-regions-subtitle {{
-  color: #E2E8F0; font-size: 1.05em;
+  color: #F1F5F9; font-size: 1.05em;
   margin-bottom: 1.3em; font-weight: 500;
 }}
 
@@ -449,15 +453,15 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
   transition: width 1.4s cubic-bezier(0.16,1,0.3,1);
 }}
 .aal-brain-roi-desc {{
-  color: #E2E8F0; font-size: 0.95em;
-  margin-top: 0.2em; font-weight: 400;
+  color: #F1F5F9; font-size: 0.95em;
+  margin-top: 0.2em; font-weight: 500;
 }}
 
 /* ── NARRATIVE ── */
 .aal-brain-narrative {{
   margin-top: 1.5em; padding-top: 1.2em;
   border-top: 1px solid rgba(167,139,250,0.20);
-  color: #F1F5F9; font-size: 1.1em;
+  color: #FFFFFF; font-size: 1.1em;
   line-height: 1.6;
 }}
 .aal-brain-narrative-headline {{
