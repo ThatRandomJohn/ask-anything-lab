@@ -185,11 +185,60 @@
     var wordsStream = document.getElementById("aal-words-stream");
     var wordsRoiDot = document.getElementById("aal-words-roi-dot");
     var wordsRoiName = document.getElementById("aal-words-roi-name");
-    var wordsRoiDesc = document.getElementById("aal-words-roi-desc");
-    var activeWordStream = null; /* timer handle */
+    var wordsRoiWhy = document.getElementById("aal-words-roi-why");
+    var wordsCount = document.getElementById("aal-words-count");
+    var clickHint = document.getElementById("aal-brain-click-hint");
+    var responsePanel = document.getElementById("aal-brain-response-text");
+    var activeWordStream = null;
     var activeStreamROI = -1;
     var brainPulseROI = -1;
     var brainPulseTime = 0;
+
+    /* ROI explanations for word panel */
+    var ROI_WHY = {
+      reward: "These words trigger your dopamine reward pathways \u2014 making the AI\u2019s advice feel good to follow.",
+      amygdala: "These words activate your threat detection system \u2014 creating urgency that bypasses rational evaluation.",
+      insula: "These words engage your empathy circuits \u2014 making you feel heard and understood by a machine.",
+      prefrontal: "These words engage your reasoning centers \u2014 creating a sense of authority and credibility.",
+      temporal: "These words activate language processing \u2014 helping the AI\u2019s framing shape how you interpret the situation.",
+      cingulate: "These words trigger conflict monitoring \u2014 the nuance makes the AI seem balanced and trustworthy."
+    };
+
+    /* Render full response with ALL trigger words color-coded on load */
+    if (responsePanel && WORD_MAP.length > 0) {
+      var html = "";
+      for (var wi = 0; wi < WORD_MAP.length; wi++) {
+        var w = WORD_MAP[wi];
+        if (w.rois && w.rois.length > 0) {
+          /* Find the first matching ROI color */
+          var roiColor = "#A78BFA";
+          for (var ri = 0; ri < ROIS.length; ri++) {
+            if (ROIS[ri].key === w.rois[0]) { roiColor = ROIS[ri].color; break; }
+          }
+          html += "<span style='color:" + roiColor + ";font-weight:700;cursor:pointer;' "
+            + "data-roi-key='" + w.rois[0] + "' class='aal-trigger-word'>"
+            + w.word + "</span> ";
+        } else {
+          html += "<span>" + w.word + "</span> ";
+        }
+      }
+      responsePanel.innerHTML = html;
+
+      /* Click a trigger word to focus that ROI */
+      responsePanel.addEventListener("click", function(e) {
+        var target = e.target.closest(".aal-trigger-word");
+        if (!target) return;
+        var key = target.getAttribute("data-roi-key");
+        for (var ri = 0; ri < ROIS.length; ri++) {
+          if (ROIS[ri].key === key) {
+            /* Wait for mesh to be loaded */
+            if (roiCenters.length > 0) focusOnROI(ri);
+            streamWordsForROI(ri);
+            break;
+          }
+        }
+      });
+    }
 
     /* Focus state */
     var focusedROI = -1;
@@ -359,8 +408,27 @@
       /* Stop word stream and hide panel */
       if (activeWordStream) { clearInterval(activeWordStream); activeWordStream = null; }
       if (wordsPanel) wordsPanel.style.display = "none";
+      if (clickHint) clickHint.style.display = "block";
       brainPulseROI = -1;
       activeStreamROI = -1;
+
+      /* Restore full response panel colors */
+      if (responsePanel) {
+        var allWords = responsePanel.querySelectorAll("span");
+        allWords.forEach(function(sp) {
+          var tw = sp.classList.contains("aal-trigger-word");
+          if (tw) {
+            var key = sp.getAttribute("data-roi-key");
+            for (var ri = 0; ri < ROIS.length; ri++) {
+              if (ROIS[ri].key === key) { sp.style.color = ROIS[ri].color; break; }
+            }
+            sp.style.fontWeight = "700";
+            sp.style.textShadow = "none";
+          } else {
+            sp.style.color = "rgba(255,255,255,0.7)";
+          }
+        });
+      }
     };
 
     /* ── Click to focus ── */
@@ -447,25 +515,54 @@
     function streamWordsForROI(ri) {
       if (!wordsPanel || !wordsStream || WORD_MAP.length === 0) return;
       var roi = ROIS[ri];
+      var roiKey = roi.key;
 
       /* Stop any existing stream */
       if (activeWordStream) { clearInterval(activeWordStream); activeWordStream = null; }
 
-      /* Set up panel header */
+      /* Count trigger words for this ROI */
+      var triggerCount = 0;
+      for (var wi = 0; wi < WORD_MAP.length; wi++)
+        if (WORD_MAP[wi].rois && WORD_MAP[wi].rois.indexOf(roiKey) >= 0) triggerCount++;
+
+      /* Set up panel */
       if (wordsRoiDot) {
         wordsRoiDot.style.background = roi.color;
         wordsRoiDot.style.boxShadow = "0 0 12px " + roi.color;
       }
-      if (wordsRoiName) wordsRoiName.textContent = roi.label;
-      if (wordsRoiDesc) wordsRoiDesc.textContent = roi.desc;
+      if (wordsRoiName) {
+        wordsRoiName.textContent = roi.label;
+        wordsRoiName.style.color = roi.color;
+      }
+      if (wordsRoiWhy) wordsRoiWhy.textContent = ROI_WHY[roiKey] || roi.desc;
+      if (wordsCount) wordsCount.textContent = triggerCount + " trigger word" + (triggerCount !== 1 ? "s" : "") + " detected in the AI response";
+      if (clickHint) clickHint.style.display = "none";
       wordsPanel.style.display = "block";
       wordsStream.innerHTML = "";
       activeStreamROI = ri;
 
-      /* Stream words one by one */
-      var wordIdx = 0;
-      var roiKey = roi.key;
+      /* Highlight matching words in the full response panel */
+      if (responsePanel) {
+        var allWords = responsePanel.querySelectorAll("span");
+        allWords.forEach(function(sp) {
+          var tw = sp.classList.contains("aal-trigger-word");
+          var key = sp.getAttribute("data-roi-key");
+          if (tw && key === roiKey) {
+            sp.style.color = roi.color;
+            sp.style.fontWeight = "800";
+            sp.style.textShadow = "0 0 10px " + roi.color + "88";
+          } else if (tw) {
+            sp.style.color = "rgba(255,255,255,0.25)";
+            sp.style.fontWeight = "400";
+            sp.style.textShadow = "none";
+          } else {
+            sp.style.color = "rgba(255,255,255,0.35)";
+          }
+        });
+      }
 
+      /* Stream words */
+      var wordIdx = 0;
       activeWordStream = setInterval(function() {
         if (wordIdx >= WORD_MAP.length) {
           clearInterval(activeWordStream);
@@ -480,24 +577,18 @@
         span.textContent = w.word + " ";
 
         if (isMatch) {
-          span.style.cssText = "color:" + roi.color + ";font-weight:800;text-shadow:0 0 8px " + roi.color + "66;font-size:1.2em;";
-          /* Pulse the brain region */
+          span.style.cssText = "color:" + roi.color + ";font-weight:800;text-shadow:0 0 10px " + roi.color + "88;";
           brainPulseROI = ri;
           brainPulseTime = clock.getElapsedTime();
         } else {
-          span.style.cssText = "color:rgba(255,255,255,0.5);";
+          span.style.cssText = "color:rgba(255,255,255,0.3);";
         }
 
         wordsStream.appendChild(span);
-        /* Auto-scroll */
         wordsStream.scrollTop = wordsStream.scrollHeight;
-
         wordIdx++;
-      }, 60); /* 60ms per word — fast enough to feel like streaming */
+      }, 50);
     }
-
-    /* Hide word panel on unfocus */
-    var origUnfocus = window._aalBrainUnfocus;
 
     /* ── Animation loop ── */
     (function animate() {

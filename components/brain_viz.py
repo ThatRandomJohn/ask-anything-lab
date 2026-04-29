@@ -181,24 +181,41 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
           Predicted cortical response to the AI&rsquo;s answer
         </div>
         {roi_html}
-        <div style="margin-top:1em;padding-top:1em;border-top:1px solid rgba(167,139,250,0.20);
-             color:#FFFFFF;font-size:0.95em;">
+
+        <!-- Word stream panel — inside the ROI card, shown on region click -->
+        <div id="aal-brain-words-panel" style="display:none;margin-top:1em;padding-top:1em;
+             border-top:1px solid rgba(167,139,250,0.25);">
+          <div style="display:flex;align-items:center;gap:0.6em;margin-bottom:0.6em;">
+            <span id="aal-words-roi-dot" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;"></span>
+            <span id="aal-words-roi-name" style="color:#FFFFFF;font-size:1.1em;font-weight:800;"></span>
+          </div>
+          <div id="aal-words-roi-why" style="color:#FFFFFF;font-size:0.92em;margin-bottom:0.6em;line-height:1.5;"></div>
+          <div id="aal-words-stream" style="color:#FFFFFF;font-size:1.05em;line-height:1.8;
+               max-height:140px;overflow-y:auto;padding-right:0.5em;"></div>
+          <div id="aal-words-count" style="color:rgba(255,255,255,0.6);font-size:0.85em;margin-top:0.5em;"></div>
+        </div>
+
+        <!-- Default instruction — hidden when word panel is visible -->
+        <div id="aal-brain-click-hint" style="margin-top:1em;padding-top:1em;
+             border-top:1px solid rgba(167,139,250,0.20);color:#FFFFFF;font-size:0.95em;">
           <strong style="color:#FFFFFF;font-weight:700;">Click a region above</strong>
-          to see which words from the AI&rsquo;s response activate it.
+          to see which words from the AI&rsquo;s response trigger that part of your brain.
         </div>
       </div>
     </div>
 
-    <!-- Word activation panel — shows when a ROI row is clicked -->
-    <div id="aal-brain-words-panel" style="display:none;margin-top:1.4em;
-         background:rgba(15,23,42,0.92);border:1px solid rgba(167,139,250,0.25);
+    <!-- Full response with all trigger words highlighted — below the grid -->
+    <div id="aal-brain-response-panel" style="margin-top:1.4em;
+         background:rgba(15,23,42,0.92);border:1px solid rgba(167,139,250,0.18);
          border-radius:18px;padding:1.4em 1.8em;">
-      <div style="display:flex;align-items:center;gap:0.8em;margin-bottom:0.8em;">
-        <span id="aal-words-roi-dot" style="width:12px;height:12px;border-radius:50%;flex-shrink:0;"></span>
-        <span id="aal-words-roi-name" style="color:#FFFFFF;font-size:1.3em;font-weight:900;"></span>
-        <span id="aal-words-roi-desc" style="color:#FFFFFF;font-size:0.95em;font-weight:400;margin-left:auto;"></span>
+      <div style="display:flex;align-items:center;gap:0.6em;margin-bottom:0.8em;">
+        <div style="width:6px;height:6px;border-radius:50%;background:#A78BFA;box-shadow:0 0 8px #A78BFA;"></div>
+        <span style="color:#FFFFFF;font-size:1.1em;font-weight:800;">AI Response</span>
+        <span style="color:rgba(255,255,255,0.5);font-size:0.88em;margin-left:auto;">
+          Trigger words are color-coded by brain region
+        </span>
       </div>
-      <div id="aal-words-stream" style="color:#FFFFFF;font-size:1.15em;line-height:1.8;min-height:3em;"></div>
+      <div id="aal-brain-response-text" style="color:rgba(255,255,255,0.7);font-size:1.05em;line-height:1.75;"></div>
     </div>
   </div>
 </div>
