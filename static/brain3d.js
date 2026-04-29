@@ -58,23 +58,37 @@
           vertexROI[vi] = ri;
     }
 
-    function activationColor(v) {
-      v = Math.max(0, Math.min(1, v));
-      var stops = [
-        [0.0,  0.120, 0.160, 0.240],
-        [0.12, 0.100, 0.300, 0.420],
-        [0.30, 0.050, 0.780, 0.900],
-        [0.50, 0.500, 0.440, 0.950],
-        [0.70, 0.720, 0.600, 1.000],
-        [0.85, 0.960, 0.440, 0.560],
-        [1.0,  1.000, 0.800, 0.850]
-      ];
-      var lo = stops[0], hi = stops[stops.length - 1];
-      for (var i = 0; i < stops.length - 1; i++)
-        if (v >= stops[i][0] && v <= stops[i + 1][0]) { lo = stops[i]; hi = stops[i + 1]; break; }
-      var t = (hi[0] - lo[0]) > 0 ? (v - lo[0]) / (hi[0] - lo[0]) : 0;
-      t = t * t * (3 - 2 * t);
-      return [lo[1]+t*(hi[1]-lo[1]), lo[2]+t*(hi[2]-lo[2]), lo[3]+t*(hi[3]-lo[3])];
+    /* Parse hex color to [r,g,b] 0-1 */
+    function hexToRGB(hex) {
+      var r = parseInt(hex.slice(1,3), 16) / 255;
+      var g = parseInt(hex.slice(3,5), 16) / 255;
+      var b = parseInt(hex.slice(5,7), 16) / 255;
+      return [r, g, b];
+    }
+
+    /* Build per-vertex color: ROI vertices get their signature color
+       scaled by activation, non-ROI vertices stay dark */
+    var roiVertexColor = {}; /* vertex index → {r,g,b} of the ROI color */
+    for (var ri = 0; ri < ROIS.length; ri++) {
+      var rgb = hexToRGB(ROIS[ri].color);
+      var ranges = ROIS[ri].ranges;
+      for (var rr = 0; rr < ranges.length; rr++)
+        for (var vi = ranges[rr][0]; vi < ranges[rr][1] && vi < 20484; vi++)
+          roiVertexColor[vi] = rgb;
+    }
+
+    function vertexColor(idx, activation) {
+      var a = Math.max(0, Math.min(1, activation));
+      var roi = roiVertexColor[idx];
+      if (roi) {
+        /* ROI vertex: dark base → ROI color at full activation */
+        var intensity = 0.08 + a * 0.92;
+        return [roi[0] * intensity, roi[1] * intensity, roi[2] * intensity];
+      } else {
+        /* Non-ROI: very dark with subtle blue tint */
+        var base = 0.03 + a * 0.08;
+        return [base * 0.6, base * 0.7, base * 1.0];
+      }
     }
 
     var T = window.THREE;
@@ -92,7 +106,7 @@
     renderer.setClearColor(0x030712, 1);
     if (T.ACESFilmicToneMapping) {
       renderer.toneMapping = T.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.8;
+      renderer.toneMappingExposure = 1.0;
     }
 
     var scene = new T.Scene();
@@ -110,9 +124,6 @@
     controls.enablePan = false;
     controls.rotateSpeed = 0.8;
 
-    var ZOOM_MIN = 120, ZOOM_MAX = 280, ZOOM_DEFAULT = 185;
-    var currentZoom = ZOOM_DEFAULT;
-
     /* Stop auto-rotate on first user interaction */
     canvas.addEventListener("pointerdown", function() {
       controls.autoRotate = false;
@@ -127,31 +138,30 @@
       { azimuth: 0,              polar: 0.15 },        /* top */
       { azimuth: 0,              polar: Math.PI-0.15 } /* bottom */
     ];
-    var SNAP_THRESHOLD = 0.12; /* radians — how close before it snaps */
-    var snapActive = false;
+    var SNAP_THRESHOLD = 0.12;
 
-    /* Zoom slider */
+    /* Zoom slider — value 0-100, maps to distance 280 (far) → 120 (close) */
     var zoomSlider = document.getElementById("aal-brain-zoom");
+    function zoomValToDist(v) { return 280 - (v / 100) * 160; } /* 0=280, 100=120 */
+    function distToZoomVal(d) { return Math.round((280 - d) / 160 * 100); }
     if (zoomSlider) {
-      zoomSlider.value = ZOOM_DEFAULT;
-      zoomSlider.min = ZOOM_MIN;
-      zoomSlider.max = ZOOM_MAX;
+      zoomSlider.min = 0;
+      zoomSlider.max = 100;
+      zoomSlider.value = distToZoomVal(185); /* default distance */
       zoomSlider.addEventListener("input", function() {
-        currentZoom = parseFloat(zoomSlider.value);
+        var dist = zoomValToDist(parseFloat(zoomSlider.value));
         var dir = camera.position.clone().sub(controls.target).normalize();
-        camera.position.copy(controls.target).addScaledVector(dir, currentZoom);
+        camera.position.copy(controls.target).addScaledVector(dir, dist);
         controls.autoRotate = false;
       });
     }
 
-    /* Bright lighting */
-    scene.add(new T.AmbientLight(0x6680AA, 1.5));
-    scene.add(new T.HemisphereLight(0x06B6D4, 0xF97316, 0.8));
-    var kl = new T.DirectionalLight(0xC4B5FD, 1.2); kl.position.set(60,90,70); scene.add(kl);
-    var fl = new T.DirectionalLight(0x22D3EE, 0.6); fl.position.set(-50,30,80); scene.add(fl);
-    var rl = new T.DirectionalLight(0xF472B6, 0.7); rl.position.set(-40,-30,-70); scene.add(rl);
-    var ul = new T.PointLight(0xFBBF24, 0.5, 300); ul.position.set(0,-80,30); scene.add(ul);
-    var topL = new T.DirectionalLight(0xFFFFFF, 0.4); topL.position.set(0,100,0); scene.add(topL);
+    /* Dark moody lighting — lets ROI colors glow against dark mesh */
+    scene.add(new T.AmbientLight(0x223344, 1.0));
+    scene.add(new T.HemisphereLight(0x112233, 0x111122, 0.4));
+    var kl = new T.DirectionalLight(0x8888AA, 0.6); kl.position.set(60,90,70); scene.add(kl);
+    var fl = new T.DirectionalLight(0x445566, 0.3); fl.position.set(-50,30,80); scene.add(fl);
+    var rl = new T.DirectionalLight(0x554466, 0.3); rl.position.set(-40,-30,-70); scene.add(rl);
 
     var raycaster = new T.Raycaster();
     var mouse = new T.Vector2();
@@ -200,16 +210,23 @@
       var cols = new Float32Array(mesh.vertices.length * 3);
       for (var i = 0; i < mesh.vertices.length; i++) {
         var a = i < ACT.length ? ACT[i] : 0;
-        var c = activationColor(a);
+        var c = vertexColor(i, a);
         cols[i*3] = c[0]; cols[i*3+1] = c[1]; cols[i*3+2] = c[2];
       }
       geo.setAttribute("color", new T.BufferAttribute(cols, 3));
       geo.computeVertexNormals();
 
       var mat = new T.MeshStandardMaterial({
-        vertexColors: true, roughness: 0.3, metalness: 0.1,
-        side: T.DoubleSide, emissiveIntensity: 0.15, emissive: new T.Color(0x1a1a2e)
+        vertexColors: true, roughness: 0.5, metalness: 0.05,
+        side: T.DoubleSide, emissiveIntensity: 0.6, emissive: new T.Color(0x000000)
       });
+      /* Use vertex colors as emissive so ROI regions glow */
+      mat.onBeforeCompile = function(shader) {
+        shader.fragmentShader = shader.fragmentShader.replace(
+          'vec3 totalEmissiveRadiance = emissive;',
+          'vec3 totalEmissiveRadiance = vColor * 0.5;'
+        );
+      };
       brainMesh = new T.Mesh(geo, mat);
       brainMesh.rotation.x = -Math.PI * 0.08;
       scene.add(brainMesh);
@@ -534,10 +551,13 @@
         }
       }
 
-      /* Keep zoom distance in sync with slider */
-      var curDist = camera.position.clone().sub(controls.target).length();
-      if (zoomSlider && Math.abs(curDist - parseFloat(zoomSlider.value)) > 2) {
-        zoomSlider.value = Math.round(curDist);
+      /* Keep zoom slider in sync with camera distance */
+      if (zoomSlider) {
+        var curDist = camera.position.clone().sub(controls.target).length();
+        var expectedVal = distToZoomVal(curDist);
+        if (Math.abs(parseInt(zoomSlider.value) - expectedVal) > 2) {
+          zoomSlider.value = expectedVal;
+        }
       }
 
       renderer.render(scene, camera);
