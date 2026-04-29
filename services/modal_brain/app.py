@@ -19,13 +19,14 @@ CACHE_DIR = "/cache"
 # Container image with TRIBE v2 + dependencies
 image = (
     modal.Image.debian_slim(python_version="3.11")
+    .apt_install("git", "ffmpeg")
     .pip_install(
         "numpy>=1.26.4,<2.1.0",  # Must pin BEFORE tribev2 install
     )
     .pip_install(
         "torch>=2.5.1,<2.7",
-        "tribev2",
         "scipy",
+        "tribev2 @ git+https://github.com/facebookresearch/tribev2.git",
     )
     .env({
         "HF_HUB_CACHE": CACHE_DIR,
@@ -65,8 +66,7 @@ def compute_roi_scores(activations):
     volumes={CACHE_DIR: cache_vol},
     secrets=[modal.Secret.from_name("huggingface-secret")],
     timeout=300,
-    container_idle_timeout=120,
-    allow_concurrent_inputs=4,
+    scaledown_window=120,
 )
 class TribeBrain:
     @modal.enter()
@@ -82,7 +82,7 @@ class TribeBrain:
         cache_vol.commit()
         print("[tribe] Model loaded successfully.", flush=True)
 
-    @modal.web_endpoint(method="POST")
+    @modal.fastapi_endpoint(method="POST")
     def predict(self, request: dict):
         """Predict cortical activation from text input.
 
