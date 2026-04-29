@@ -115,10 +115,19 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
     word_map_json = json.dumps(word_map, separators=(",", ":"))
 
     status_banner = ""
-    if status in ("demo", "fallback"):
+    if status == "tribe_v2":
+        status_banner = """
+        <div style="display:inline-block;background:rgba(34,211,238,0.10);
+             border:1px solid rgba(34,211,238,0.35);border-radius:8px;
+             padding:0.5em 1.2em;font-size:0.9em;color:#22D3EE;
+             font-weight:600;margin-bottom:1.2em;">
+          Live TRIBE v2 cortical prediction &middot; trained on real fMRI data
+        </div>
+        """
+    elif status in ("demo", "fallback"):
         status_banner = """
         <div class="aal-brain-demo-banner">
-          Reference activation &middot; live TRIBE v2 predictions coming soon
+          Estimated activation &middot; live TRIBE v2 predictions available when GPU endpoint is active
         </div>
         """
 

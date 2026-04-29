@@ -40,6 +40,7 @@ from components.study import SURPRISING_OPTIONS, study_intro_html, thanks_html
 from components import corpus_slideshow
 from components.brain_viz import render_brain_stage
 from data.brain_data import FALLBACK_BRAIN_DATA, generate_activation_from_response, generate_narrative
+from services.tribe_api import get_brain_activation
 from services.claude_api import get_influence_analysis, get_response, process_prompt_parallel
 from services.supabase_client import fetch_aggregate_stats, save_influence, save_study
 
@@ -365,6 +366,9 @@ def handle_audience_submit(prompt):
 
     embeddings, sources, response = process_prompt_parallel(prompt)
 
+    # Get brain activation from TRIBE v2 (or keyword fallback)
+    brain_data = get_brain_activation(response) if response else FALLBACK_BRAIN_DATA
+
     yield (
         gr.update(visible=False, elem_classes=["aal-force-hide"]),
         gr.update(visible=True,  elem_classes=["aal-force-show"]),
@@ -373,7 +377,7 @@ def handle_audience_submit(prompt):
         prompt,
         embeddings, sources, response,
         {},
-        FALLBACK_BRAIN_DATA,
+        brain_data,
         session_id,
         gr.update(value="", visible=False),
     )
@@ -474,7 +478,7 @@ def handle_brain_playground(prompt, brain_data):
     if not prompt or not prompt.strip():
         return gr.update(), gr.update(), brain_data
     response = get_response(prompt.strip())
-    new_brain = generate_activation_from_response(response)
+    new_brain = get_brain_activation(response)
     narrative = generate_narrative(new_brain["roi_scores"])
     brain_html = render_brain_stage(new_brain, response)
     result_html = f"""
