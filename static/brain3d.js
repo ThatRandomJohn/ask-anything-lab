@@ -81,17 +81,17 @@
       var a = Math.max(0, Math.min(1, activation));
       var roi = roiVertexColor[idx];
       if (roi) {
-        /* ROI vertex: cubic ramp for dramatic dark→bright contrast */
-        var t = a * a * a; /* cubic — stays very dark until high activation */
-        var intensity = 0.02 + t * 1.2; /* near-black at low, oversaturated at high */
+        /* ROI vertex: quadratic ramp — visible base tint, vivid at high activation */
+        var t = a * a;
+        var intensity = 0.12 + t * 1.0;
         return [
           Math.min(1, roi[0] * intensity),
           Math.min(1, roi[1] * intensity),
           Math.min(1, roi[2] * intensity)
         ];
       } else {
-        /* Non-ROI: near-black */
-        return [0.015, 0.018, 0.025];
+        /* Non-ROI: visible dark blue-grey so the brain shape is clear */
+        return [0.06, 0.07, 0.10];
       }
     }
 
@@ -163,12 +163,13 @@
       });
     }
 
-    /* Dark moody lighting — lets ROI colors glow against dark mesh */
-    scene.add(new T.AmbientLight(0x223344, 1.0));
-    scene.add(new T.HemisphereLight(0x112233, 0x111122, 0.4));
-    var kl = new T.DirectionalLight(0x8888AA, 0.6); kl.position.set(60,90,70); scene.add(kl);
-    var fl = new T.DirectionalLight(0x445566, 0.3); fl.position.set(-50,30,80); scene.add(fl);
-    var rl = new T.DirectionalLight(0x554466, 0.3); rl.position.set(-40,-30,-70); scene.add(rl);
+    /* Balanced lighting — brain shape visible, ROI colors vivid */
+    scene.add(new T.AmbientLight(0x334466, 1.2));
+    scene.add(new T.HemisphereLight(0x1a3355, 0x1a1133, 0.5));
+    var kl = new T.DirectionalLight(0x9999BB, 0.7); kl.position.set(60,90,70); scene.add(kl);
+    var fl = new T.DirectionalLight(0x556677, 0.4); fl.position.set(-50,30,80); scene.add(fl);
+    var rl = new T.DirectionalLight(0x665577, 0.35); rl.position.set(-40,-30,-70); scene.add(rl);
+    var topL = new T.DirectionalLight(0x666688, 0.3); topL.position.set(0,100,0); scene.add(topL);
 
     var raycaster = new T.Raycaster();
     var mouse = new T.Vector2();
