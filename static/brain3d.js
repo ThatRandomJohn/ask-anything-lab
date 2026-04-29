@@ -81,13 +81,17 @@
       var a = Math.max(0, Math.min(1, activation));
       var roi = roiVertexColor[idx];
       if (roi) {
-        /* ROI vertex: dark base → ROI color at full activation */
-        var intensity = 0.08 + a * 0.92;
-        return [roi[0] * intensity, roi[1] * intensity, roi[2] * intensity];
+        /* ROI vertex: cubic ramp for dramatic dark→bright contrast */
+        var t = a * a * a; /* cubic — stays very dark until high activation */
+        var intensity = 0.02 + t * 1.2; /* near-black at low, oversaturated at high */
+        return [
+          Math.min(1, roi[0] * intensity),
+          Math.min(1, roi[1] * intensity),
+          Math.min(1, roi[2] * intensity)
+        ];
       } else {
-        /* Non-ROI: very dark with subtle blue tint */
-        var base = 0.03 + a * 0.08;
-        return [base * 0.6, base * 0.7, base * 1.0];
+        /* Non-ROI: near-black */
+        return [0.015, 0.018, 0.025];
       }
     }
 
@@ -122,7 +126,10 @@
     controls.autoRotateSpeed = 0.3;
     controls.enableZoom = false; /* zoom via slider only */
     controls.enablePan = false;
-    controls.rotateSpeed = 0.8;
+    controls.rotateSpeed = 1.0;
+    controls.minPolarAngle = 0.05;          /* near-top */
+    controls.maxPolarAngle = Math.PI - 0.05; /* near-bottom */
+    /* No azimuthal limits — full 360 horizontal rotation */
 
     /* Stop auto-rotate on first user interaction */
     canvas.addEventListener("pointerdown", function() {
