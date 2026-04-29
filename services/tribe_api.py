@@ -32,7 +32,7 @@ def get_brain_activation(response_text: str) -> dict:
             url,
             json={"text": response_text},
             headers={"Content-Type": "application/json"},
-            timeout=60,  # TRIBE v2 cold start can take ~30-60s
+            timeout=300,  # TRIBE v2 cold start can take ~5min on first model download
         )
         resp.raise_for_status()
         data = resp.json()

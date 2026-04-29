@@ -26,6 +26,7 @@ image = (
     .pip_install(
         "torch>=2.5.1,<2.7",
         "scipy",
+        "fastapi",
         "tribev2 @ git+https://github.com/facebookresearch/tribev2.git",
     )
     .env({
