@@ -41,7 +41,7 @@ from components import corpus_slideshow
 from components.brain_viz import render_brain_stage
 from data.brain_data import FALLBACK_BRAIN_DATA, generate_activation_from_response, generate_narrative
 from services.tribe_api import get_brain_activation
-from services.claude_api import get_influence_analysis, get_response, process_prompt_parallel
+from services.claude_api import get_influence_analysis, get_response, process_prompt_parallel, process_prompt_and_brain
 from services.supabase_client import fetch_aggregate_stats, save_influence, save_study
 
 
@@ -364,10 +364,7 @@ def handle_audience_submit(prompt):
         gr.update(value="", visible=False),
     )
 
-    embeddings, sources, response = process_prompt_parallel(prompt)
-
-    # Get brain activation from TRIBE v2 (or keyword fallback)
-    brain_data = get_brain_activation(response) if response else FALLBACK_BRAIN_DATA
+    embeddings, sources, response, brain_data = process_prompt_and_brain(prompt)
 
     yield (
         gr.update(visible=False, elem_classes=["aal-force-hide"]),
@@ -405,49 +402,43 @@ def handle_audience_continue(audience_stage, prompt, embeddings, sources, respon
         )
 
     if audience_stage == 2:
-        return (
-            gr.update(visible=True), _no, _no,
-            typewriter_html(response or "(no response)"),
-            3, influence_data, _hide_playground, _hide_result,
-        )
-
-    if audience_stage == 3:
-        # Brain visualization stage — show the playground input
+        # Combined synthesize + brain stage — response streams word-by-word
+        # inside the brain visualization with live cortical activation
         bd = brain_data if brain_data else FALLBACK_BRAIN_DATA
         return (
             gr.update(visible=True), _no, _no,
-            render_brain_stage(bd, response or ""),
-            4, influence_data,
+            render_brain_stage(bd, response or "", stream_words=True),
+            3, influence_data,
             gr.update(visible=True),  # show brain playground
             _hide_result,
         )
 
-    if audience_stage == 4:
+    if audience_stage == 3:
         # Influence analysis — hide playground
         inf = get_influence_analysis(prompt, response or "")
         return (
             gr.update(visible=True), _no, _no,
             render_influence_analysis(response or "", inf),
-            5, inf, _hide_playground, _hide_result,
+            4, inf, _hide_playground, _hide_result,
         )
 
-    if audience_stage == 5:
+    if audience_stage == 4:
         # Influence done → transition to study questions
         save_influence(session_id, influence_data)
         return (
             gr.update(visible=False, elem_classes=["aal-force-hide"]),
             gr.update(visible=True, elem_classes=["aal-force-show"]),
             _no,
-            _no, 6, influence_data, _hide_playground, _hide_result,
+            _no, 5, influence_data, _hide_playground, _hide_result,
         )
 
-    if audience_stage == 7:
+    if audience_stage == 6:
         # Compare done → transition to thanks
         return (
             gr.update(visible=False, elem_classes=["aal-force-hide"]),
             _no,
             gr.update(visible=True, elem_classes=["aal-force-show"]),
-            _no, 8, influence_data, _hide_playground, _hide_result,
+            _no, 7, influence_data, _hide_playground, _hide_result,
         )
 
     return _no, _no, _no, _no, audience_stage, influence_data, _no, _no
@@ -459,7 +450,7 @@ def handle_study_submit(session_id, prompt, q1, q2, q3):
             gr.update(),                 # study_group
             gr.update(),                 # audience_viz_group
             gr.update(),                 # audience_display
-            7,                           # audience_stage
+            6,                           # audience_stage
             gr.update(value="**Please answer question 1 before submitting.**", visible=True),
         )
     save_study(session_id, prompt, q1, q2, q3)
@@ -468,7 +459,7 @@ def handle_study_submit(session_id, prompt, q1, q2, q3):
         gr.update(visible=False, elem_classes=["aal-force-hide"]),   # hide study
         gr.update(visible=True, elem_classes=["aal-force-show"]),    # show viz with compare
         render_audience_compare(stats),                               # audience_display
-        7,                                                            # audience_stage
+        6,                                                            # audience_stage
         gr.update(value="", visible=False),                          # study_err
     )
 
@@ -836,6 +827,29 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
     demo.load(fn=None, inputs=None, outputs=None, js=KEYBOARD_JS)
 
 
+_og_path = os.path.join(os.path.dirname(__file__), "static", "og-image.png")
+_OG_HEAD = f"""
+<script>
+// Override Gradio's empty OG tags for link preview crawlers
+(function() {{
+  var img = '/gradio_api/file={_og_path}';
+  var title = 'Ask Anything Lab — See What AI Does to Your Brain';
+  var desc = 'Live 3D brain visualization of how AI language activates your reward, empathy, and decision-making circuits. A TEDx companion.';
+  function setMeta(attr, key, val) {{
+    var el = document.querySelector('meta['+attr+'="'+key+'"]');
+    if (el) el.setAttribute('content', val);
+  }}
+  setMeta('property','og:title', title);
+  setMeta('property','og:description', desc);
+  setMeta('property','og:image', img);
+  setMeta('name','twitter:title', title);
+  setMeta('name','twitter:description', desc);
+  setMeta('name','twitter:image', img);
+}})();
+</script>
+"""
+
+
 if __name__ == "__main__":
     demo.launch(
         server_name="0.0.0.0",
@@ -843,6 +857,7 @@ if __name__ == "__main__":
         show_error=True,
         theme=gr.themes.Base(primary_hue="blue", neutral_hue="slate"),
         css=_load_css(),
+        head=_OG_HEAD,
         allowed_paths=[
             corpus_slideshow.slides_dir(),
             os.path.join(os.path.dirname(__file__), "static"),

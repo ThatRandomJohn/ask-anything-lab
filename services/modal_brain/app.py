@@ -39,12 +39,13 @@ image = (
 
 # ROI vertex ranges (same as data/brain_data.py — fsaverage5 Desikan-Killiany approx)
 ROI_RANGES = {
-    "reward":     [(1100, 1400), (11342, 11642)],
+    "reward":     [(1100, 1390), (11342, 11632)],
     "amygdala":   [(1390, 1490), (11632, 11732)],
     "temporal":   [(5600, 6200), (15842, 16442)],
     "insula":     [(4710, 4950), (14952, 15192)],
     "cingulate":  [(2100, 2500), (12342, 12742)],
-    "prefrontal": [(800, 1200), (11042, 11442)],
+    "prefrontal": [(800, 1100), (11042, 11342)],
+    "dmn":        [(400, 800), (10642, 11042), (2500, 2800), (12742, 13042)],
 }
 
 N_VERTICES = 20484

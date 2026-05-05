@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import os
 
-from data.brain_data import map_response_words
+from data.brain_data import compute_insights, map_response_words
 
 _HERE = os.path.dirname(__file__)
 _STATIC = os.path.join(os.path.dirname(_HERE), "static")
@@ -55,6 +55,12 @@ _ROI_META = {
         "color": "#A78BFA",
         "vertices": [(800, 1200), (11042, 11442)],
     },
+    "dmn": {
+        "label": "Default Mode Network",
+        "desc": "Self-referential processing — makes generic advice feel personal",
+        "color": "#34D399",
+        "vertices": [(400, 800), (10642, 11042), (2500, 2800), (12742, 13042)],
+    },
 }
 
 
@@ -87,7 +93,50 @@ def _render_roi_breakdown(roi_scores: dict) -> str:
     return "".join(rows)
 
 
-def render_brain_stage(brain_data: dict, response: str = "") -> str:
+def _render_insights(insights: list) -> str:
+    """Render computed insight cards below the brain visualization."""
+    if not insights:
+        return ""
+
+    cards = []
+    for i, ins in enumerate(insights):
+        delay = 300 + i * 180
+        cards.append(f"""
+        <div class="aal-influence-card-entrance" style="animation-delay:{delay}ms;
+             background:rgba(15,23,42,0.92);border:1px solid {ins['color']}25;
+             border-radius:18px;padding:1.4em 1.6em;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;width:4px;height:100%;
+               background:linear-gradient(180deg,{ins['color']},{ins['color']}44);"></div>
+          <div style="display:flex;align-items:flex-start;gap:1em;">
+            <div style="flex-shrink:0;font-size:1.6em;margin-top:0.1em;">{ins['icon']}</div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:0.8em;margin-bottom:0.4em;flex-wrap:wrap;">
+                <span style="color:#FFFFFF;font-size:1.15em;font-weight:900;">{ins['title']}</span>
+                <span style="background:{ins['color']}18;border:1px solid {ins['color']}40;
+                      border-radius:999px;padding:0.2em 0.8em;font-size:0.82em;
+                      color:{ins['color']};font-weight:700;white-space:nowrap;">{ins['metric']}</span>
+              </div>
+              <div style="color:#CBD5E1;font-size:0.95em;line-height:1.65;">{ins['body']}</div>
+            </div>
+          </div>
+        </div>""")
+
+    return f"""
+    <div style="margin-top:1.8em;">
+      <div style="display:flex;align-items:center;gap:0.6em;margin-bottom:1.2em;">
+        <div style="width:6px;height:6px;border-radius:50%;background:#FBBF24;box-shadow:0 0 8px #FBBF24;"></div>
+        <span style="color:#FFFFFF;font-size:1.4em;font-weight:900;">What This Means</span>
+        <span style="color:#64748B;font-size:0.88em;margin-left:auto;">
+          Computed from your data
+        </span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:1em;">
+        {"".join(cards)}
+      </div>
+    </div>"""
+
+
+def render_brain_stage(brain_data: dict, response: str = "", stream_words: bool = False) -> str:
     activations = brain_data.get("activations", [])
     roi_scores = brain_data.get("roi_scores", {})
     status = brain_data.get("status", "demo")
@@ -114,6 +163,10 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
     word_map = map_response_words(response) if response else []
     word_map_json = json.dumps(word_map, separators=(",", ":"))
 
+    # Compute data-driven insights
+    insights = compute_insights(roi_scores, word_map, response) if response else []
+    insights_html = _render_insights(insights)
+
     status_banner = ""
     if status == "tribe_v2":
         status_banner = """
@@ -131,7 +184,8 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
         </div>
         """
 
-    step_label = "Step 5 &middot; Brain Response"
+    step_label = "Step 4 &middot; Synthesize &amp; Brain Response" if stream_words else "Step 5 &middot; Brain Response"
+    stream_flag = "true" if stream_words else "false"
 
     return f"""
 <div class="aal-brain-wrap">
@@ -153,8 +207,8 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
       This is your brain <span class="aal-brain-title-accent">on AI.</span>
     </h2>
     <p style="color:#FFFFFF;font-size:1.3em;max-width:780px;line-height:1.55;margin:0 0 0.8em;">
-      TRIBE v2 maps <strong style="color:#FFFFFF;font-weight:800;">20,484 cortical points</strong> to predict how
-      your brain responds to what you just read.
+      {"Watch each word stream in — the brain lights up in real time as the AI stitches its answer." if stream_words else
+       "TRIBE v2 maps <strong style='color:#FFFFFF;font-weight:800;'>20,484 cortical points</strong> to predict how your brain responds to what you just read."}
       <span style="color:#FFFFFF;font-weight:500;">The bright spots are where language becomes feeling.</span>
     </p>
     {status_banner}
@@ -226,6 +280,8 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
       </div>
       <div id="aal-brain-response-text" style="color:rgba(255,255,255,0.7);font-size:1.05em;line-height:1.75;"></div>
     </div>
+
+    {insights_html}
   </div>
 </div>
 
@@ -518,6 +574,7 @@ def render_brain_stage(brain_data: dict, response: str = "") -> str:
 <div id="aal-brain-mesh-url" style="display:none;">{mesh_src}</div>
 <div id="aal-brain-roi-data" style="display:none;">{roi_json}</div>
 <div id="aal-brain-word-map" style="display:none;">{word_map_json}</div>
+<div id="aal-brain-stream-mode" style="display:none;">{stream_flag}</div>
 <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
      onload="var s=document.createElement('script');s.src='/gradio_api/file={js_path}';document.head.appendChild(s);"
 />

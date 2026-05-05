@@ -9,7 +9,6 @@
 (function() {
   function loadScript(src) {
     return new Promise(function(ok, fail) {
-      if (document.querySelector('script[src="' + src + '"]')) { ok(); return; }
       var s = document.createElement("script");
       s.src = src; s.crossOrigin = "anonymous";
       s.onload = ok; s.onerror = fail;
@@ -18,9 +17,9 @@
   }
 
   var base = "https://unpkg.com/three@0.137.0";
-  var p = window.THREE ? Promise.resolve() : loadScript(base + "/build/three.min.js");
+  var p = (window.THREE && window.THREE.Scene) ? Promise.resolve() : loadScript(base + "/build/three.min.js");
   p.then(function() {
-    return window.THREE.OrbitControls ? Promise.resolve()
+    return (window.THREE && window.THREE.OrbitControls) ? Promise.resolve()
       : loadScript(base + "/examples/js/controls/OrbitControls.js");
   }).then(initBrain).catch(function(e) { console.error("Three.js load failed:", e); });
 
@@ -197,30 +196,37 @@
 
     /* ROI explanations for word panel */
     var ROI_WHY = {
-      reward: "These words trigger your dopamine reward pathways \u2014 making the AI\u2019s advice feel good to follow.",
-      amygdala: "These words activate your threat detection system \u2014 creating urgency that bypasses rational evaluation.",
-      insula: "These words engage your empathy circuits \u2014 making you feel heard and understood by a machine.",
-      prefrontal: "These words engage your reasoning centers \u2014 creating a sense of authority and credibility.",
-      temporal: "These words activate language processing \u2014 helping the AI\u2019s framing shape how you interpret the situation.",
-      cingulate: "These words trigger conflict monitoring \u2014 the nuance makes the AI seem balanced and trustworthy."
+      reward: "These words fire your dopamine pathways \u2014 approval, hope, and solution-framing that make the AI\u2019s advice feel good to follow, even before you\u2019ve evaluated it.",
+      amygdala: "These words hijack your threat-detection system \u2014 loss-framing, urgency, and emotional salience that bypass deliberative processing and demand immediate attention.",
+      insula: "These words engage your empathy and interoception circuits \u2014 social bonding, body-awareness language, and emotional mirroring that make a machine feel like a person who understands you.",
+      prefrontal: "These words recruit your executive function \u2014 structured reasoning, authority signals, and decision-framing that create a sense of credibility and control.",
+      temporal: "These words activate narrative comprehension and theory of mind \u2014 stories, metaphors, and explanations that shape how you interpret the situation before you realize it.",
+      cingulate: "These words trigger your conflict-monitoring system \u2014 hedging, qualification, and nuance that paradoxically make the AI seem more trustworthy by appearing balanced.",
+      dmn: "Every \u201cyou\u201d and \u201cyour\u201d lights up your Default Mode Network \u2014 the brain system that constructs your sense of self. This is how generic AI advice feels personally crafted: it keeps YOU at the center of every sentence."
     };
 
-    /* Render full response with ALL trigger words color-coded on load */
+    /* Stream mode: auto-reveal words one at a time with brain pulses */
+    var streamModeEl = document.getElementById("aal-brain-stream-mode");
+    var STREAM_MODE = streamModeEl && streamModeEl.textContent.trim() === "true";
+    var autoStreamDone = false;
+
+    /* Render full response — hidden initially in stream mode */
     if (responsePanel && WORD_MAP.length > 0) {
       var html = "";
       for (var wi = 0; wi < WORD_MAP.length; wi++) {
         var w = WORD_MAP[wi];
+        var hidden = STREAM_MODE ? "opacity:0;transition:opacity 0.25s ease;" : "";
         if (w.rois && w.rois.length > 0) {
-          /* Find the first matching ROI color */
           var roiColor = "#A78BFA";
           for (var ri = 0; ri < ROIS.length; ri++) {
             if (ROIS[ri].key === w.rois[0]) { roiColor = ROIS[ri].color; break; }
           }
-          html += "<span style='color:" + roiColor + ";font-weight:700;cursor:pointer;' "
-            + "data-roi-key='" + w.rois[0] + "' class='aal-trigger-word'>"
+          html += "<span style='color:" + roiColor + ";font-weight:700;cursor:pointer;" + hidden + "' "
+            + "data-roi-key='" + w.rois[0] + "' data-word-idx='" + wi + "' class='aal-trigger-word aal-stream-word'>"
             + w.word + "</span> ";
         } else {
-          html += "<span>" + w.word + "</span> ";
+          html += "<span style='" + hidden + "' data-word-idx='" + wi + "' class='aal-stream-word'>"
+            + w.word + "</span> ";
         }
       }
       responsePanel.innerHTML = html;
@@ -232,13 +238,45 @@
         var key = target.getAttribute("data-roi-key");
         for (var ri = 0; ri < ROIS.length; ri++) {
           if (ROIS[ri].key === key) {
-            /* Wait for mesh to be loaded */
             if (roiCenters.length > 0) focusOnROI(ri);
             streamWordsForROI(ri);
             break;
           }
         }
       });
+
+      /* Auto-stream: reveal words one at a time, pulsing brain on trigger words */
+      if (STREAM_MODE) {
+        var allStreamWords = responsePanel.querySelectorAll(".aal-stream-word");
+        var streamIdx = 0;
+        var STREAM_DELAY_MS = 55; /* ms per word — tuned so ~200 words ≈ 11 seconds */
+        var STREAM_START_DELAY = 800; /* let the brain render first */
+
+        setTimeout(function() {
+          var autoStream = setInterval(function() {
+            if (streamIdx >= allStreamWords.length) {
+              clearInterval(autoStream);
+              autoStreamDone = true;
+              return;
+            }
+            var span = allStreamWords[streamIdx];
+            span.style.opacity = "1";
+
+            /* If this is a trigger word, pulse the matching brain region */
+            if (span.classList.contains("aal-trigger-word")) {
+              var key = span.getAttribute("data-roi-key");
+              for (var ri = 0; ri < ROIS.length; ri++) {
+                if (ROIS[ri].key === key) {
+                  brainPulseROI = ri;
+                  brainPulseTime = clock.getElapsedTime();
+                  break;
+                }
+              }
+            }
+            streamIdx++;
+          }, STREAM_DELAY_MS);
+        }, STREAM_START_DELAY);
+      }
     }
 
     /* Focus state */
@@ -291,7 +329,9 @@
       var wm = new T.MeshBasicMaterial({
         color: 0x6366F1, wireframe: true, transparent: true, opacity: 0.03
       });
-      scene.add(new T.Mesh(geo.clone(), wm).rotation.set(brainMesh.rotation.x, 0, 0) || scene.children[scene.children.length-1]);
+      var wireMesh = new T.Mesh(geo.clone(), wm);
+      wireMesh.rotation.x = brainMesh.rotation.x;
+      scene.add(wireMesh);
 
       /* Create ROI center positions + glow sprites */
       for (var ri = 0; ri < ROIS.length; ri++) {
