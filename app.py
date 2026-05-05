@@ -827,27 +827,62 @@ with gr.Blocks(title="Ask Anything Lab") as demo:
     demo.load(fn=None, inputs=None, outputs=None, js=KEYBOARD_JS)
 
 
-_og_path = os.path.join(os.path.dirname(__file__), "static", "og-image.png")
-_OG_HEAD = f"""
-<script>
-// Override Gradio's empty OG tags for link preview crawlers
-(function() {{
-  var img = '/gradio_api/file={_og_path}';
-  var title = 'Ask Anything Lab — See What AI Does to Your Brain';
-  var desc = 'Live 3D brain visualization of how AI language activates your reward, empathy, and decision-making circuits. A TEDx companion.';
-  function setMeta(attr, key, val) {{
-    var el = document.querySelector('meta['+attr+'="'+key+'"]');
-    if (el) el.setAttribute('content', val);
-  }}
-  setMeta('property','og:title', title);
-  setMeta('property','og:description', desc);
-  setMeta('property','og:image', img);
-  setMeta('name','twitter:title', title);
-  setMeta('name','twitter:description', desc);
-  setMeta('name','twitter:image', img);
-}})();
-</script>
-"""
+_og_img_path = f"/gradio_api/file={os.path.join(os.path.dirname(__file__), 'static', 'og-image.png')}"
+_OG_TITLE = "Ask Anything Lab — See What AI Does to Your Brain"
+_OG_DESC = "Live 3D brain visualization of how AI language activates your reward, empathy, and decision-making circuits. A TEDx companion."
+
+# ASGI middleware that rewrites Gradio's empty OG meta tags in the initial HTML
+# so social media crawlers (which read static HTML, not JS) see the right preview.
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+import re as _re
+
+
+class OGMetaMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path in ("/", "") and "text/html" in response.headers.get("content-type", ""):
+            body = b""
+            async for chunk in response.body_iterator:
+                body += chunk if isinstance(chunk, bytes) else chunk.encode()
+            html = body.decode()
+            # Replace Gradio's empty/default OG tags with ours
+            html = _re.sub(
+                r'<meta property="og:title" content="[^"]*"',
+                f'<meta property="og:title" content="{_OG_TITLE}"',
+                html, count=1,
+            )
+            html = _re.sub(
+                r'<meta property="og:description"[^>]*content="[^"]*"',
+                f'<meta property="og:description" content="{_OG_DESC}"',
+                html, count=1,
+            )
+            html = _re.sub(
+                r'<meta property="og:image" content="[^"]*"',
+                f'<meta property="og:image" content="{_og_img_path}"',
+                html, count=1,
+            )
+            html = _re.sub(
+                r'<meta name="twitter:title" content="[^"]*"',
+                f'<meta name="twitter:title" content="{_OG_TITLE}"',
+                html, count=1,
+            )
+            html = _re.sub(
+                r'<meta name="twitter:description"[^>]*content="[^"]*"',
+                f'<meta name="twitter:description" content="{_OG_DESC}"',
+                html, count=1,
+            )
+            html = _re.sub(
+                r'<meta name="twitter:image" content="[^"]*"',
+                f'<meta name="twitter:image" content="{_og_img_path}"',
+                html, count=1,
+            )
+            headers = {k: v for k, v in response.headers.items()
+                       if k.lower() not in ("content-length", "content-encoding")}
+            return Response(content=html, status_code=response.status_code,
+                            headers=headers, media_type="text/html")
+        return response
 
 
 if __name__ == "__main__":
@@ -857,7 +892,7 @@ if __name__ == "__main__":
         show_error=True,
         theme=gr.themes.Base(primary_hue="blue", neutral_hue="slate"),
         css=_load_css(),
-        head=_OG_HEAD,
+        app_kwargs={"middleware": [(OGMetaMiddleware, [], {})]},
         allowed_paths=[
             corpus_slideshow.slides_dir(),
             os.path.join(os.path.dirname(__file__), "static"),
